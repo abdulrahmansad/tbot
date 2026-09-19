@@ -131,6 +131,7 @@ def create_app(
                 "news_provider_connected": snapshot.get(
                     "news_provider_connected", False
                 ),
+                "news_provider_name": snapshot.get("news_provider_name"),
             },
         }
 
