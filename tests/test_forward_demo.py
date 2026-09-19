@@ -74,13 +74,19 @@ class FakeScanner:
         ]
 
 
-def test_forward_demo_records_fresh_plan_once(tmp_path):
+def make_service(tmp_path):
     service = ForwardDemoService(
         market_data=FakeMarketData(),
         plans_path=tmp_path / "plans.jsonl",
         seen_path=tmp_path / "seen.json",
+        snapshot_path=tmp_path / "live.json",
     )
     service.scanner = FakeScanner()
+    return service
+
+
+def test_forward_demo_records_fresh_plan_once(tmp_path):
+    service = make_service(tmp_path)
 
     first = service.poll_once(entry_timeframes=("5M",), now=START)
     second = service.poll_once(entry_timeframes=("5M",), now=START)
@@ -90,3 +96,17 @@ def test_forward_demo_records_fresh_plan_once(tmp_path):
     rows = service.store.read_raw()
     assert len(rows) == 1
     assert rows[0]["plan_id"] == "demo-stable-5M"
+
+
+def test_forward_demo_writes_live_snapshot(tmp_path):
+    service = make_service(tmp_path)
+
+    service.poll_once(entry_timeframes=("5M",), now=START)
+
+    import json
+
+    payload = json.loads((tmp_path / "live.json").read_text(encoding="utf-8"))
+    assert payload["execution_enabled"] is False
+    assert payload["timeframes"]["5M"]["status"] == "ok"
+    assert payload["timeframes"]["5M"]["ready_primary_count"] == 1
+    assert payload["timeframes"]["5M"]["latest_ready_plan"]["zone_id"] == "stable-5M"
