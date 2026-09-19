@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from urllib.error import HTTPError, URLError
+from datetime import datetime, timezone
 from urllib.request import urlopen
 
 
@@ -60,12 +61,33 @@ def main() -> None:
         "calibration_ready": calibration.get("ready_for_forward_demo") is True,
     }
 
+    timeframe_minutes = {"5M": 5, "15M": 15, "1H": 60}
     for tf, key in (("5M", "live_5m"), ("15M", "live_15m"), ("1H", "live_1h")):
         payload = payloads.get(key, {})
         checks[f"live_{tf.lower()}_ok"] = payload.get("status") == "ok"
         checks[f"live_{tf.lower()}_execution_disabled"] = (
             payload.get("execution_enabled") is False
         )
+
+        plan = payload.get("latest_ready_plan")
+        if plan is None:
+            checks[f"live_{tf.lower()}_plan_fresh_or_absent"] = True
+        else:
+            retest_at = plan.get("retest_at")
+            try:
+                parsed = datetime.fromisoformat(
+                    str(retest_at).replace("Z", "+00:00")
+                )
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                age_minutes = (
+                    datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)
+                ).total_seconds() / 60.0
+                checks[f"live_{tf.lower()}_plan_fresh_or_absent"] = (
+                    age_minutes <= timeframe_minutes[tf] * 2 + 1
+                )
+            except Exception:
+                checks[f"live_{tf.lower()}_plan_fresh_or_absent"] = False
 
     ready = not failures and all(checks.values())
 
