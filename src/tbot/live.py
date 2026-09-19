@@ -72,7 +72,10 @@ class LivePlanningService:
         def news_gate_at(retest_at):
             if self.calendar is None:
                 from .flip_dip.models import NewsGate
-                return NewsGate(clear=True)
+                return NewsGate(
+                    clear=False,
+                    reason="news_provider_unavailable",
+                )
             return self.news_engine.evaluate(now=retest_at, events=events)
 
         setups = self.backtester.scan(
