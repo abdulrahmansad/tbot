@@ -37,6 +37,7 @@ FIELDNAMES = [
     "outcome_status",
     "outcome_resolved_at",
     "entry_reference_price",
+    "sizing_reference_price",
     "risk_unit",
     "target_2r",
     "target_3_5r",
@@ -100,6 +101,9 @@ def setup_to_row(
             else ""
         ),
         "entry_reference_price": outcome.entry_reference_price if outcome else "",
+        "sizing_reference_price": (
+            plan.sizing_reference_price if plan and plan.sizing_reference_price is not None else ""
+        ),
         "risk_unit": outcome.risk_unit if outcome else "",
         "target_2r": outcome.target_2r if outcome else "",
         "target_3_5r": outcome.target_3_5r if outcome else "",
