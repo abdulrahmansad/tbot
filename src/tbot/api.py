@@ -18,6 +18,7 @@ from .strategy_version import provisional_v0
 
 
 DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
+DEFAULT_FORWARD_PLANS_PATH = Path("data/runtime/forward-plans.jsonl")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
 
 
@@ -66,8 +67,10 @@ def create_app(
     *,
     market_data: MarketDataProvider | None = None,
     calibration_dir: str | Path = DEFAULT_CALIBRATION_DIR,
+    forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
 ) -> FastAPI:
     root = Path(calibration_dir)
+    forward_path = Path(forward_plans_path)
     app = FastAPI(
         title="TBOT Phase 0 API",
         version="0.1.0",
@@ -148,22 +151,47 @@ def create_app(
 
     @app.get("/api/plans")
     def plans() -> dict[str, Any]:
-        rows = [
-            row
-            for row in _read_rows(root)
-            if row.get("status") == "PLAN_READY"
-            and (row.get("outcome_status") or "") == "OPEN"
-            and row.get("cluster_primary", "").lower() == "true"
-        ]
-        rows.sort(
-            key=lambda row: row.get("retest_at") or row.get("created_at") or "",
-            reverse=True,
-        )
+        if not forward_path.exists():
+            return {
+                "mode": "forward_demo",
+                "execution_enabled": False,
+                "count": 0,
+                "items": [],
+            }
+
+        items: list[dict[str, Any]] = []
+        with forward_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                import json
+
+                row = json.loads(stripped)
+                plan = row.get("plan", {})
+                items.append(
+                    {
+                        "plan_id": row.get("plan_id"),
+                        "created_at": row.get("created_at"),
+                        "direction": plan.get("direction"),
+                        "entry_timeframe": plan.get("entry_timeframe"),
+                        "confirmation_timeframe": plan.get("confirmation_timeframe"),
+                        "zone_lower": plan.get("entry_low"),
+                        "zone_upper": plan.get("entry_high"),
+                        "minimum_rr": plan.get("minimum_rr"),
+                        "risk_percent": plan.get("risk_percent"),
+                        "execution_number": plan.get("execution_number"),
+                        "invalidation_rule": plan.get("invalidation_rule"),
+                        "outcome_status": "OPEN",
+                    }
+                )
+
+        items.sort(key=lambda row: row.get("created_at") or "", reverse=True)
         return {
-            "mode": "historical_calibration",
+            "mode": "forward_demo",
             "execution_enabled": False,
-            "count": len(rows),
-            "items": [_history_row(row) for row in rows],
+            "count": len(items),
+            "items": items,
         }
 
     @app.get("/api/live")
