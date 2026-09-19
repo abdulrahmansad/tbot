@@ -9,6 +9,7 @@ from tbot.data.cached import TimeframeCachedMarketDataProvider
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
+from tbot.news_cache import CachedEconomicCalendarProvider
 from tbot.forward_tracking import ForwardOutcomeTracker
 
 
@@ -60,7 +61,11 @@ def main() -> None:
 
     calendar = None
     if os.getenv("FMP_API_KEY"):
-        calendar = FmpEconomicCalendarProvider()
+        calendar = CachedEconomicCalendarProvider(
+            FmpEconomicCalendarProvider(),
+            ttl_minutes=15,
+            padding_minutes=60,
+        )
     elif not args.allow_no_news:
         parser.error(
             "FMP_API_KEY is required for the forward-demo validation period. "
