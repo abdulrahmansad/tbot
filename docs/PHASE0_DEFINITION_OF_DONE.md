@@ -27,6 +27,16 @@
 23. Market/news provider keys remain worker-only.
 24. No broker execution code/endpoints exist.
 25. CI is green.
+26. User can run an interactive historical test for a selected From/To range.
+27. Historical test accepts starting balance and risk up to the 5% cap.
+28. Historical results show setups, outcomes, drawdown and a labeled account scenario.
+29. User can configure a named demo session with start/end dates.
+30. Demo plans are tagged to a deterministic session ID.
+31. Demo summaries are session-specific.
+32. Live reports market OPEN vs CLOSED_OR_STALE independently from strategy hours.
+33. Live reports strategy trading-window state and news-gate state separately.
+34. Live explains why no READY plan is currently shown.
+35. 1H -> 4H is visible as a supported secondary mode even when not active.
 
 ## Historical validation requirements before forward demo
 
