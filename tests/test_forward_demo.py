@@ -146,3 +146,18 @@ def test_forward_demo_blocks_setup_if_retest_was_inside_news_blackout(tmp_path):
     assert result.fresh_primary_count == 1
     assert result.created_plan_ids == ()
     assert result.news_clear is True
+
+def test_live_snapshot_hides_stale_ready_plan(tmp_path):
+    service = make_service(tmp_path)
+    service.poll_once(
+        entry_timeframes=("5M",),
+        now=START + timedelta(hours=2),
+    )
+
+    import json
+
+    payload = json.loads((tmp_path / "live.json").read_text(encoding="utf-8"))
+    tf = payload["timeframes"]["5M"]
+    assert tf["ready_primary_count"] == 1
+    assert tf["fresh_primary_count"] == 0
+    assert tf["latest_ready_plan"] is None
