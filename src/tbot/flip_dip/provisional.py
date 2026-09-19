@@ -198,10 +198,12 @@ class ProvisionalFlipZoneDetector:
     ) -> FlipZone | None:
         pivot = candles[pivot_index]
         lower, upper = self._zone_bounds(pivot, True)
-        end = min(len(candles), pivot_index + 1 + self.config.zone_lookback)
+        confirmed_at = pivot_index + self.config.pivot_right
+        start = confirmed_at + 1
+        end = min(len(candles), start + self.config.zone_lookback)
         traded_above = False
 
-        for candle in candles[pivot_index + 1:end]:
+        for candle in candles[start:end]:
             if candle.high > upper:
                 traded_above = True
             if traded_above and candle.close < lower:
@@ -230,10 +232,12 @@ class ProvisionalFlipZoneDetector:
     ) -> FlipZone | None:
         pivot = candles[pivot_index]
         lower, upper = self._zone_bounds(pivot, False)
-        end = min(len(candles), pivot_index + 1 + self.config.zone_lookback)
+        confirmed_at = pivot_index + self.config.pivot_right
+        start = confirmed_at + 1
+        end = min(len(candles), start + self.config.zone_lookback)
         traded_below = False
 
-        for candle in candles[pivot_index + 1:end]:
+        for candle in candles[start:end]:
             if candle.low < lower:
                 traded_below = True
             if traded_below and candle.close > upper:
@@ -255,18 +259,26 @@ class ProvisionalFlipZoneDetector:
         return None
 
 
+@dataclass(frozen=True)
+class RejectionEvaluation:
+    score: float
+    observed_at: object | None
+    sample_size: int
+
+
 class ProvisionalRejectionEvaluator:
     def __init__(self, config: ProvisionalDetectorConfig | None = None) -> None:
         self.config = config or ProvisionalDetectorConfig()
         self.config.validate()
 
-    def score(self, zone: FlipZone, candles: Sequence[Candle]) -> float:
+    def evaluate(self, zone: FlipZone, candles: Sequence[Candle]) -> RejectionEvaluation:
         after = [c for c in candles if c.timestamp >= zone.created_at]
-        if len(after) < 2:
-            return 0.0
+        required = self.config.rejection_lookahead_candles + 1
+        if len(after) < required:
+            return RejectionEvaluation(score=0.0, observed_at=None, sample_size=len(after))
 
         width = max(zone.upper_price - zone.lower_price, 1e-9)
-        sample = after[: self.config.rejection_lookahead_candles + 1]
+        sample = after[:required]
         origin = sample[0]
 
         if zone.direction is Direction.SELL:
@@ -283,13 +295,20 @@ class ProvisionalRejectionEvaluator:
         close_component = directional_closes / max(len(sample) - 1, 1)
 
         efficiencies = []
-        for c in sample[1:]:
-            candle_range = max(c.high - c.low, 1e-9)
-            efficiencies.append(abs(c.close - c.open) / candle_range)
+        for candle in sample[1:]:
+            candle_range = max(candle.high - candle.low, 1e-9)
+            efficiencies.append(abs(candle.close - candle.open) / candle_range)
         body_component = min(mean(efficiencies) * 1.5, 1.0) if efficiencies else 0.0
 
         score = departure_component * 0.50 + close_component * 0.30 + body_component * 0.20
-        return max(0.0, min(score, 1.0))
+        return RejectionEvaluation(
+            score=max(0.0, min(score, 1.0)),
+            observed_at=sample[-1].timestamp,
+            sample_size=len(sample),
+        )
+
+    def score(self, zone: FlipZone, candles: Sequence[Candle]) -> float:
+        return self.evaluate(zone, candles).score
 
     def is_healthy(self, zone: FlipZone, candles: Sequence[Candle]) -> bool:
         return self.score(zone, candles) >= self.config.minimum_rejection_score
