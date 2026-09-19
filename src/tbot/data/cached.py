@@ -35,9 +35,13 @@ class TimeframeCachedMarketDataProvider:
         upstream: MarketDataProvider,
         *,
         now_fn: Callable[[], datetime] | None = None,
+        refresh_grace_seconds: int = 15,
     ) -> None:
+        if refresh_grace_seconds < 0:
+            raise ValueError("refresh_grace_seconds cannot be negative")
         self.upstream = upstream
         self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
+        self.refresh_grace_seconds = refresh_grace_seconds
         self._cache: dict[str, _CacheEntry] = {}
 
     def _bucket(self, timeframe: str) -> int:
@@ -46,7 +50,8 @@ class TimeframeCachedMarketDataProvider:
         now = self.now_fn()
         if now.tzinfo is None:
             raise ValueError("cache clock must be timezone-aware")
-        return int(now.timestamp()) // _TIMEFRAME_SECONDS[timeframe]
+        effective_timestamp = now.timestamp() - self.refresh_grace_seconds
+        return int(effective_timestamp) // _TIMEFRAME_SECONDS[timeframe]
 
     def fetch_candles(
         self,
