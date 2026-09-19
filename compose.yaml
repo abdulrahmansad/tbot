@@ -4,6 +4,8 @@ services:
     command: python scripts/run_server.py
     environment:
       PORT: "8000"
+      TBOT_DASHBOARD_USERNAME: "${TBOT_DASHBOARD_USERNAME:-}"
+      TBOT_DASHBOARD_PASSWORD: "${TBOT_DASHBOARD_PASSWORD:-}"
     ports:
       - "8000:8000"
     volumes:
@@ -13,8 +15,9 @@ services:
   worker:
     build: .
     command: python scripts/run_forward_demo.py --interval 60
-    env_file:
-      - .env
+    environment:
+      TWELVE_DATA_API_KEY: "${TWELVE_DATA_API_KEY}"
+      FMP_API_KEY: "${FMP_API_KEY}"
     volumes:
       - tbot-data:/app/data/runtime
     restart: unless-stopped
