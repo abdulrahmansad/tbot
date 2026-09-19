@@ -18,7 +18,7 @@ from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.clustering import cluster_lookup
 from .live_snapshot import LiveSnapshotStore
 from .runtime_status import evaluate_worker_snapshot
-from .strategy_version import candidate_v1
+from .strategy_version import authoritative_v1
 
 
 DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
@@ -127,9 +127,14 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
-        version = candidate_v1(datetime.now(timezone.utc))
         snapshot = live_snapshot.read()
         worker = evaluate_worker_snapshot(snapshot)
+        readiness = evaluate_calibration_readiness(root / "summary.json")
+        version = authoritative_v1(
+            datetime.now(timezone.utc),
+            calibration_ready=readiness.ready_for_forward_demo,
+            demo_active=readiness.ready_for_forward_demo and worker.fresh,
+        )
         return {
             "status": "ok",
             "symbol": "XAUUSD",
