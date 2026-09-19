@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    command: python scripts/run_server.py
+    environment:
+      PORT: "8000"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - tbot-data:/app/data/runtime
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python scripts/run_forward_demo.py --interval 60
+    env_file:
+      - .env
+    volumes:
+      - tbot-data:/app/data/runtime
+    restart: unless-stopped
+
+volumes:
+  tbot-data:
