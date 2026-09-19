@@ -14,6 +14,7 @@ from tbot.finance_calendar import FinanceCalendarProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
 from tbot.news_cache import CachedEconomicCalendarProvider
+from tbot.xoomar_calendar import XoomarEconomicCalendarProvider
 from tbot.forward_tracking import ForwardOutcomeTracker
 
 
@@ -54,7 +55,7 @@ def main() -> None:
         "--allow-no-news",
         action="store_true",
         help=(
-            "Development only: allow monitoring without FMP news protection. "
+            "Development only: allow monitoring without any news protection. "
             "Do not use for the validation demo week."
         ),
     )
@@ -70,6 +71,7 @@ def main() -> None:
     if os.getenv("FMP_API_KEY"):
         providers.append(FmpEconomicCalendarProvider())
     providers.append(FinanceCalendarProvider())
+    providers.append(XoomarEconomicCalendarProvider())
 
     if providers:
         calendar = CachedEconomicCalendarProvider(
