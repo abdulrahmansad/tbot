@@ -37,6 +37,12 @@ class FakeConfig:
     confirmation_timeframe = {"5M": "15M", "15M": "1H", "1H": "4H"}
     news_blackout_before_minutes = 30
     news_blackout_after_minutes = 15
+    timezone = "Europe/Istanbul"
+    from datetime import time as _time
+    trading_start = _time(23, 0)
+    trading_end = _time(20, 0)
+    strategy_contract_version = "owner-flip-dip-2026-09-19"
+    primary_entry_timeframes = ("5M", "15M")
 
 
 class FakeScanner:
