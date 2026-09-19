@@ -21,6 +21,7 @@ class HistoricalSetup:
     zone: FlipZone
     rejection_score: float
     decision: PlanDecision
+    rejection_observed_at: datetime | None = None
     retest_at: datetime | None = None
     structure: StructureConfirmation | None = None
     outcome: HistoricalOutcome | None = None
@@ -58,44 +59,72 @@ class ProvisionalBacktester:
         output: list[HistoricalSetup] = []
 
         for zone in zones:
-            rejection_score = self.rejection_evaluator.score(zone, entry_candles)
-            healthy = rejection_score >= self.rejection_evaluator.config.minimum_rejection_score
-
-            retest = first_retest_after(zone, entry_candles)
+            rejection = self.rejection_evaluator.evaluate(zone, entry_candles)
+            rejection_score = rejection.score
+            healthy = (
+                rejection_score
+                >= self.rejection_evaluator.config.minimum_rejection_score
+            )
             structure: StructureConfirmation | None = None
+            retest = None
             outcome: HistoricalOutcome | None = None
 
-            if retest is None:
-                decision = PlanDecision(plan=None, reasons=("no_retest_found",))
+            if rejection.observed_at is None:
+                decision = PlanDecision(
+                    plan=None,
+                    reasons=("rejection_window_incomplete",),
+                )
             else:
+                htf_end = htf_candles[-1].timestamp if htf_candles else rejection.observed_at
                 structure = self.structure_detector.confirm_between(
                     htf_candles,
                     direction=zone.direction,
                     timeframe=required_htf,
-                    start=zone.created_at,
-                    end=retest.timestamp,
+                    start=rejection.observed_at,
+                    end=htf_end,
                 )
-                zone.state = SetupState.WAITING_FOR_RETEST
-                decision = self.planner.build_plan(
-                    zone=zone,
-                    now=retest.timestamp,
-                    structure=structure,
-                    rejection_is_healthy=healthy,
-                    news=NewsGate(clear=True),
-                    planned_rr=planned_rr,
-                )
-                if decision.plan is not None:
-                    outcome = simulate_historical_outcome(
-                        zone=zone,
-                        candles=entry_candles,
-                        activated_at=retest.timestamp,
+
+                if not structure.confirmed or structure.observed_at is None:
+                    reasons = []
+                    if not healthy:
+                        reasons.append("rejection_not_healthy")
+                    reasons.append("htf_structure_not_confirmed")
+                    decision = PlanDecision(plan=None, reasons=tuple(reasons))
+                else:
+                    retest = first_retest_after(
+                        zone,
+                        entry_candles,
+                        after=structure.observed_at,
                     )
+                    if retest is None:
+                        reasons = []
+                        if not healthy:
+                            reasons.append("rejection_not_healthy")
+                        reasons.append("no_retest_found")
+                        decision = PlanDecision(plan=None, reasons=tuple(reasons))
+                    else:
+                        zone.state = SetupState.WAITING_FOR_RETEST
+                        decision = self.planner.build_plan(
+                            zone=zone,
+                            now=retest.timestamp,
+                            structure=structure,
+                            rejection_is_healthy=healthy,
+                            news=NewsGate(clear=True),
+                            planned_rr=planned_rr,
+                        )
+                        if decision.plan is not None:
+                            outcome = simulate_historical_outcome(
+                                zone=zone,
+                                candles=entry_candles,
+                                activated_at=retest.timestamp,
+                            )
 
             output.append(
                 HistoricalSetup(
                     zone=zone,
                     rejection_score=rejection_score,
                     decision=decision,
+                    rejection_observed_at=rejection.observed_at,
                     retest_at=retest.timestamp if retest is not None else None,
                     structure=structure,
                     outcome=outcome,
