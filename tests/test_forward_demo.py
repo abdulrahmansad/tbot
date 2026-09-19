@@ -10,6 +10,7 @@ from tbot.flip_dip.models import (
 )
 from tbot.flip_dip.planner import PlanDecision
 from tbot.forward_demo import ForwardDemoService
+from tbot.news import EconomicEvent, Impact
 
 
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -110,3 +111,38 @@ def test_forward_demo_writes_live_snapshot(tmp_path):
     assert payload["timeframes"]["5M"]["status"] == "ok"
     assert payload["timeframes"]["5M"]["ready_primary_count"] == 1
     assert payload["timeframes"]["5M"]["latest_ready_plan"]["zone_id"] == "stable-5M"
+
+
+class FakeCalendar:
+    def fetch_events(self, *, start, end):
+        return [
+            EconomicEvent(
+                title="CPI",
+                scheduled_at=START + timedelta(minutes=45),
+                impact=Impact.HIGH,
+                currency="USD",
+                xauusd_relevant=True,
+            )
+        ]
+
+
+def test_forward_demo_blocks_setup_if_retest_was_inside_news_blackout(tmp_path):
+    service = ForwardDemoService(
+        market_data=FakeMarketData(),
+        calendar=FakeCalendar(),
+        plans_path=tmp_path / "plans.jsonl",
+        seen_path=tmp_path / "seen.json",
+        snapshot_path=tmp_path / "live.json",
+    )
+    service.scanner = FakeScanner()
+
+    # Fake 5M setup retest occurs at START+45m. Poll at +70m, which is outside
+    # the current +15m blackout, to prove the setup is checked at retest time.
+    result = service.poll_once(
+        entry_timeframes=("5M",),
+        now=START + timedelta(minutes=70),
+    )
+
+    assert result.fresh_primary_count == 1
+    assert result.created_plan_ids == ()
+    assert result.news_clear is True
