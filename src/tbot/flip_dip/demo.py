@@ -33,6 +33,9 @@ class DemoPlanRecord:
     plan: TradePlan
     created_at: datetime
     events: list[DemoEvent]
+    session_name: str | None = None
+    session_start: str | None = None
+    session_end: str | None = None
 
     @property
     def terminal(self) -> bool:
@@ -48,6 +51,9 @@ class DemoPlanRecord:
             "plan_id": self.plan_id,
             "created_at": self.created_at.isoformat(),
             "plan": asdict(self.plan),
+            "session_name": self.session_name,
+            "session_start": self.session_start,
+            "session_end": self.session_end,
             "events": [
                 {
                     **asdict(event),
@@ -69,7 +75,16 @@ class InMemoryDemoTracker:
     def __init__(self) -> None:
         self._records: dict[str, DemoPlanRecord] = {}
 
-    def create(self, *, plan_id: str, plan: TradePlan, created_at: datetime) -> DemoPlanRecord:
+    def create(
+        self,
+        *,
+        plan_id: str,
+        plan: TradePlan,
+        created_at: datetime,
+        session_name: str | None = None,
+        session_start: str | None = None,
+        session_end: str | None = None,
+    ) -> DemoPlanRecord:
         if plan_id in self._records:
             raise ValueError(f"Duplicate plan_id: {plan_id}")
 
@@ -83,6 +98,9 @@ class InMemoryDemoTracker:
             plan=plan,
             created_at=created_at,
             events=[event],
+            session_name=session_name,
+            session_start=session_start,
+            session_end=session_end,
         )
         self._records[plan_id] = record
         return record
