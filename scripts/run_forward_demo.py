@@ -67,11 +67,12 @@ def main() -> None:
     provider = TimeframeCachedMarketDataProvider(raw_provider)
 
     calendar = None
-    providers = []
+    providers = [
+        XoomarEconomicCalendarProvider(),
+        FinanceCalendarProvider(),
+    ]
     if os.getenv("FMP_API_KEY"):
         providers.append(FmpEconomicCalendarProvider())
-    providers.append(FinanceCalendarProvider())
-    providers.append(XoomarEconomicCalendarProvider())
 
     if providers:
         calendar = CachedEconomicCalendarProvider(
