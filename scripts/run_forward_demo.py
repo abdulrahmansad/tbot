@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from datetime import datetime, timezone
 
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
+from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
 from tbot.forward_tracking import ForwardOutcomeTracker
 
@@ -43,7 +45,11 @@ def main() -> None:
         parser.error("--interval must be at least 30 seconds")
 
     provider = TwelveDataXauUsdProvider()
-    discovery = ForwardDemoService(market_data=provider)
+    calendar = None
+    if os.getenv("FMP_API_KEY"):
+        calendar = FmpEconomicCalendarProvider()
+
+    discovery = ForwardDemoService(market_data=provider, calendar=calendar)
     tracker = ForwardOutcomeTracker(market_data=provider)
 
     if args.once:
