@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from statistics import mean
 from typing import Sequence
 from uuid import uuid4
@@ -17,6 +18,8 @@ class ProvisionalDetectorConfig:
     minimum_departure_zone_widths: float = 1.5
     rejection_lookahead_candles: int = 3
     minimum_rejection_score: float = 0.60
+    dedupe_overlap_ratio: float = 0.60
+    dedupe_within_bars: int = 3
 
     def validate(self) -> None:
         if self.pivot_left < 1 or self.pivot_right < 1:
@@ -31,6 +34,10 @@ class ProvisionalDetectorConfig:
             raise ValueError("rejection_lookahead_candles must be >= 1")
         if not (0 <= self.minimum_rejection_score <= 1):
             raise ValueError("minimum_rejection_score must be within 0..1")
+        if not (0 <= self.dedupe_overlap_ratio <= 1):
+            raise ValueError("dedupe_overlap_ratio must be within 0..1")
+        if self.dedupe_within_bars < 0:
+            raise ValueError("dedupe_within_bars cannot be negative")
 
 
 def _entry_tf(value: str) -> EntryTimeframe:
@@ -40,6 +47,10 @@ def _entry_tf(value: str) -> EntryTimeframe:
         raise ValueError(
             f"Provisional detector only supports 5M/15M/1H entry data, got {value}"
         ) from exc
+
+
+def _timeframe_minutes(value: str) -> int:
+    return {"5M": 5, "15M": 15, "1H": 60}[value]
 
 
 def _pivot_highs(candles: Sequence[Candle], left: int, right: int) -> list[int]:
@@ -62,6 +73,19 @@ def _pivot_lows(candles: Sequence[Candle], left: int, right: int) -> list[int]:
         ):
             indexes.append(i)
     return indexes
+
+
+def _overlap_ratio(a: FlipZone, b: FlipZone) -> float:
+    overlap = max(0.0, min(a.upper_price, b.upper_price) - max(a.lower_price, b.lower_price))
+    if overlap <= 0:
+        return 0.0
+    smaller_width = min(
+        a.upper_price - a.lower_price,
+        b.upper_price - b.lower_price,
+    )
+    if smaller_width <= 0:
+        return 0.0
+    return overlap / smaller_width
 
 
 class ProvisionalFlipZoneDetector:
@@ -92,7 +116,41 @@ class ProvisionalFlipZoneDetector:
                 zones.append(found)
 
         zones.sort(key=lambda z: z.created_at)
-        return zones
+        return self._dedupe(zones)
+
+    def _dedupe(self, zones: Sequence[FlipZone]) -> list[FlipZone]:
+        if not zones:
+            return []
+
+        kept: list[FlipZone] = []
+        for zone in zones:
+            duplicate_index = None
+            max_delta = timedelta(
+                minutes=_timeframe_minutes(zone.timeframe.value)
+                * self.config.dedupe_within_bars
+            )
+            for index in range(len(kept) - 1, -1, -1):
+                existing = kept[index]
+                if zone.created_at - existing.created_at > max_delta:
+                    break
+                if existing.direction is not zone.direction:
+                    continue
+                if _overlap_ratio(existing, zone) >= self.config.dedupe_overlap_ratio:
+                    duplicate_index = index
+                    break
+
+            if duplicate_index is None:
+                kept.append(zone)
+                continue
+
+            existing = kept[duplicate_index]
+            existing_width = existing.upper_price - existing.lower_price
+            zone_width = zone.upper_price - zone.lower_price
+            if zone_width < existing_width:
+                kept[duplicate_index] = zone
+
+        kept.sort(key=lambda z: z.created_at)
+        return kept
 
     def _zone_bounds(self, candle: Candle, use_high: bool) -> tuple[float, float]:
         body_high = max(candle.open, candle.close)
@@ -242,4 +300,60 @@ class ProvisionalStructureDetector:
             direction=direction,
             kind="BOS" if confirmed else None,
             observed_at=latest.timestamp if confirmed else None,
+        )
+
+    def confirm_between(
+        self,
+        candles: Sequence[Candle],
+        *,
+        direction: Direction,
+        timeframe: str,
+        start,
+        end,
+    ) -> StructureConfirmation:
+        filtered = [
+            c
+            for c in candles
+            if c.timeframe == timeframe and c.timestamp <= end
+        ]
+        needed = self.config.pivot_left + self.config.pivot_right + 2
+        if len(filtered) < needed:
+            return StructureConfirmation(
+                confirmed=False,
+                timeframe=timeframe,
+                direction=direction,
+            )
+
+        for i in range(needed - 1, len(filtered)):
+            candle = filtered[i]
+            if candle.timestamp < start:
+                continue
+
+            history = filtered[:i]
+            highs = _pivot_highs(history, self.config.pivot_left, self.config.pivot_right)
+            lows = _pivot_lows(history, self.config.pivot_left, self.config.pivot_right)
+
+            if direction is Direction.BUY and highs:
+                if candle.close > history[highs[-1]].high:
+                    return StructureConfirmation(
+                        confirmed=True,
+                        timeframe=timeframe,
+                        direction=direction,
+                        kind="BOS",
+                        observed_at=candle.timestamp,
+                    )
+            elif direction is Direction.SELL and lows:
+                if candle.close < history[lows[-1]].low:
+                    return StructureConfirmation(
+                        confirmed=True,
+                        timeframe=timeframe,
+                        direction=direction,
+                        kind="BOS",
+                        observed_at=candle.timestamp,
+                    )
+
+        return StructureConfirmation(
+            confirmed=False,
+            timeframe=timeframe,
+            direction=direction,
         )
