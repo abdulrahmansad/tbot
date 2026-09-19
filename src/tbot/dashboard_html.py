@@ -67,6 +67,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div class="kv"><b>Symbol</b><span>XAUUSD</span></div>
           <div class="kv"><b>Minimum target</b><span>5R</span></div>
           <div class="kv"><b>Risk plan</b><span>5%</span></div>
+          <div class="kv"><b>Calibration</b><span id="calibrationReady">Checking…</span></div>
         </div>
         <div class="notice">A READY plan is a hypothetical planning signal. TBOT does not place broker orders.</div>
       </div>
@@ -82,7 +83,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="stat"><b id="eventCount">—</b><span>Independent events</span></div>
       <div class="stat"><b id="secondaryCount">—</b><span>Secondary zones</span></div>
     </div>
-    <div class="card"><div class="eyebrow">Historical calibration outcomes</div><div id="outcomes"></div><div class="notice">R values here use provisional zone-width normalization, not broker-realized P&L.</div></div>
+    <div class="card"><div class="eyebrow">Historical calibration outcomes</div><div id="outcomes"></div><div class="notice">R values here use stabilized structural sizing distance. They are calibration metrics, not broker-realized P&L.</div></div>
   </section>
 
   <section id="history" class="tab hidden"><div class="card"><div class="eyebrow">Plan history</div><div id="historyBody"></div></div></section>
@@ -92,7 +93,12 @@ const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
 let tf="5M";
 const fmt=n=>n==null?"—":Number(n).toFixed(2);
 async function get(url){try{const r=await fetch(url);return await r.json()}catch(e){return {status:"error"}}}
-async function health(){const d=await get("/api/health");q("#strategyVersion").textContent=d.strategy_version||"—"}
+async function health(){
+ const d=await get("/api/health");
+ q("#strategyVersion").textContent=d.strategy_version||"—";
+ const cal=await get("/api/calibration/status");
+ q("#calibrationReady").textContent=cal.ready_for_forward_demo?"Forward-demo ready":"Needs calibration";
+}
 async function live(){
   q("#livePlan").innerHTML='<div class="empty">Refreshing…</div>';
   const d=await get("/api/live?entry_timeframe="+tf+"&bars=500");
