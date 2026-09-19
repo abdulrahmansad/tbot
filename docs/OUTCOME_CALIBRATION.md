@@ -24,15 +24,26 @@ This represents the near-side edge first approached on a correct-side retest.
 
 ## Calibration R unit
 
-One R is normalized to the Flip Zone width:
+One R is normalized to a structural sizing-reference distance.
 
-zone_width = zone_upper - zone_lower
+Entry reference:
 
-This is a comparison metric so setups of different price scales can be
-compared. It is not the final position-sizing model.
+- SELL: lower edge of the Flip Zone.
+- BUY: upper edge of the Flip Zone.
 
-Targets are therefore reported at 2R, 3.5R and 5R relative to this provisional
-reference.
+Sizing reference:
+
+- SELL: the highest price reached during the confirmed rejection window,
+  never lower than the zone upper edge.
+- BUY: the lowest price reached during the confirmed rejection window,
+  never higher than the zone lower edge.
+
+risk_unit = abs(entry_reference - sizing_reference)
+
+This avoids microscopic Flip Zones producing unrealistic normalized R values
+while keeping the model entirely price-action based.
+
+Targets are reported at 2R, 3.5R and 5R from this structural risk unit.
 
 ## Strategy invalidation
 
@@ -44,8 +55,8 @@ The owner's rule remains:
 - BUY: entry-timeframe candle CLOSE below the zone.
 - A wick alone does not invalidate.
 
-Because close-based invalidation and zone-width R are different concepts,
-realized loss cannot be assumed to equal exactly -1R.
+Because candle-close invalidation and the structural sizing reference are
+different concepts, realized loss cannot be assumed to equal exactly -1R.
 
 ## Intrabar ambiguity
 
