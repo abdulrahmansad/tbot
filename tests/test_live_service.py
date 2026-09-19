@@ -36,4 +36,4 @@ def test_live_service_scans_without_execution():
     assert result.entry_timeframe == "5M"
     assert result.confirmation_timeframe == "15M"
     assert result.candidate_count >= 0
-    assert result.ready_count >= 0
+    assert result.ready_count == 0
