@@ -1,0 +1,25 @@
+{
+  "now": "2026-09-19T13:00:00+00:00",
+  "zone": {
+    "id": "manual-zone-001",
+    "direction": "SELL",
+    "timeframe": "5M",
+    "lower_price": 3600.0,
+    "upper_price": 3602.0,
+    "created_at": "2026-09-19T12:00:00+00:00",
+    "state": "WAITING_FOR_RETEST",
+    "execution_count": 0
+  },
+  "structure": {
+    "confirmed": true,
+    "timeframe": "15M",
+    "direction": "SELL",
+    "kind": "BOS",
+    "observed_at": "2026-09-19T12:45:00+00:00"
+  },
+  "rejection_is_healthy": true,
+  "planned_rr": 5.5,
+  "news": {
+    "clear": true
+  }
+}
