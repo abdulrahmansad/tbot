@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from tbot.demo_session import DemoSession, DemoSessionStore
 from tbot.flip_dip.backtest import HistoricalSetup
 from tbot.flip_dip.models import (
     Candle,
@@ -87,6 +88,7 @@ def make_service(tmp_path):
         plans_path=tmp_path / "plans.jsonl",
         seen_path=tmp_path / "seen.json",
         snapshot_path=tmp_path / "live.json",
+        session_path=tmp_path / "session.json",
     )
     service.scanner = FakeScanner()
     return service
@@ -236,3 +238,54 @@ def test_forward_demo_persists_three_execution_ids_once(tmp_path):
         "demo-same-zone-e2",
         "demo-same-zone-e3",
     ]
+
+
+def test_scheduled_demo_session_blocks_new_plans(tmp_path):
+    service = make_service(tmp_path)
+    DemoSessionStore(tmp_path / "session.json").write(
+        DemoSession(
+            name="Future Demo",
+            start=START + timedelta(hours=2),
+            end=START + timedelta(days=1),
+        )
+    )
+
+    result = service.poll_once(entry_timeframes=("5M",), now=START)
+
+    assert result.created_plan_ids == ()
+    import json
+    snapshot = json.loads((tmp_path / "live.json").read_text(encoding="utf-8"))
+    assert snapshot["demo_session"]["status"] == "SCHEDULED"
+
+
+def test_active_demo_session_tags_created_plan(tmp_path):
+    service = make_service(tmp_path)
+    DemoSessionStore(tmp_path / "session.json").write(
+        DemoSession(
+            name="Friend Week 1",
+            start=START - timedelta(hours=1),
+            end=START + timedelta(days=1),
+        )
+    )
+
+    result = service.poll_once(entry_timeframes=("5M",), now=START)
+    assert result.created_plan_ids == ("demo-stable-5M-e1",)
+
+    rows = service.store.read_raw()
+    assert rows[0]["session_name"] == "Friend Week 1"
+    assert rows[0]["session_start"] is not None
+    assert rows[0]["session_end"] is not None
+
+
+def test_market_status_reports_closed_or_stale(tmp_path):
+    service = make_service(tmp_path)
+
+    service.poll_once(
+        entry_timeframes=("5M",),
+        now=START + timedelta(hours=2),
+    )
+
+    import json
+    snapshot = json.loads((tmp_path / "live.json").read_text(encoding="utf-8"))
+    assert snapshot["market_status"] == "CLOSED_OR_STALE"
+    assert snapshot["market_data_age_seconds"] > 20 * 60
