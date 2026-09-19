@@ -4,6 +4,7 @@ from tbot.flip_dip.models import Candle, Direction
 from tbot.flip_dip.provisional import (
     ProvisionalDetectorConfig,
     ProvisionalFlipZoneDetector,
+    ProvisionalRejectionEvaluator,
     ProvisionalStructureDetector,
 )
 
@@ -85,3 +86,56 @@ def test_overlapping_same_direction_zones_are_deduped():
                 second.upper_price - second.lower_price,
             )
             assert smaller <= 0 or overlap / smaller < 0.5
+
+
+def test_rejection_observed_only_after_full_window_closes():
+    evaluator = ProvisionalRejectionEvaluator(
+        ProvisionalDetectorConfig(rejection_lookahead_candles=2)
+    )
+    candles = [
+        c("5M", 0, 100, 101, 99, 100),
+        c("5M", 5, 100, 100.5, 97, 98),
+        c("5M", 10, 98, 99, 96, 97),
+    ]
+    from tbot.flip_dip.models import EntryTimeframe, FlipZone, SetupState
+
+    zone = FlipZone(
+        id="z",
+        direction=Direction.SELL,
+        timeframe=EntryTimeframe.M5,
+        lower_price=99.5,
+        upper_price=100.5,
+        created_at=candles[0].timestamp,
+        state=SetupState.RETURN_CONFIRMED,
+    )
+
+    result = evaluator.evaluate(zone, candles)
+
+    assert result.observed_at == candles[2].timestamp + timedelta(minutes=5)
+    assert result.sample_size == 3
+
+
+def test_flip_search_starts_only_after_pivot_right_confirmation():
+    detector = ProvisionalFlipZoneDetector(
+        ProvisionalDetectorConfig(
+            pivot_left=1,
+            pivot_right=1,
+            zone_lookback=20,
+        )
+    )
+    candles = [
+        c("5M", 0, 100, 101, 99, 100),
+        c("5M", 5, 100, 105, 99, 104),   # pivot high candidate
+        c("5M", 10, 104, 106, 98, 99),   # confirms pivot, but flips here
+        c("5M", 15, 99, 100, 97, 98),
+        c("5M", 20, 98, 99, 96, 97),
+    ]
+
+    zones = detector.detect(candles)
+
+    # The candle needed to confirm the pivot cannot also be used as a
+    # post-confirmation flip event.
+    assert not any(
+        z.direction is Direction.SELL and z.created_at == candles[2].timestamp
+        for z in zones
+    )
