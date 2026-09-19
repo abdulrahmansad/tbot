@@ -1,35 +1,81 @@
-# Calibration Workflow Without Owner Screenshots
+# Authoritative Calibration Workflow
 
-Because chart examples are not currently available, Phase 0 uses a provisional detector only to create examples that can be reviewed.
+## Purpose
 
-## Process
+Calibration verifies whether the candidate detector interprets the owner's
+Flip & Dip strategy consistently. It does not prove profitability.
 
-1. Fetch historical XAUUSD 5M + 15M data.
-2. Run provisional Flip Zone detection.
-3. Apply provisional rejection scoring.
-4. Apply provisional higher-timeframe pivot break confirmation.
-5. Detect a later retest from the correct side.
-6. Apply normal strategy gates.
-7. Save/show every READY and SKIPPED setup.
-8. Review the generated examples.
-9. Tune detector parameters.
-10. Freeze a calibrated strategy version before the demo week.
+## Required default timeframes
+
+Primary entries:
+
+- 5M -> 15M confirmation
+- 15M -> 1H confirmation
+
+Optional only when explicitly enabled:
+
+- 1H -> 4H confirmation
+
+## What schema v3 calibrates
+
+For each detected Flip Zone:
+
+1. confirmed pivot-derived candidate zone
+2. price flips through zone
+3. price returns through zone
+4. full rejection window completes
+5. rejection score is evaluated
+6. required HTF BOS/CHOCH candidate is observed
+7. later correct-side retest episode #1
+8. correct-side rearm
+9. later retest episode #2
+10. correct-side rearm
+11. later retest episode #3
+12. each execution independently applies:
+   - rejection gate
+   - HTF structure gate
+   - trading hours
+   - historical high-impact-news gate
+   - minimum 5R plan
+   - 5% risk metadata
+13. each execution is replayed on future candles
+14. all records are exported with execution-specific setup keys
 
 ## Command
 
-After setting TWELVE_DATA_API_KEY:
+Windows:
 
-python scripts/scan_history.py --entry-tf 5M --bars 1000
+```powershell
+cd "$HOME\tbot"
+.\.venv\Scripts\python.exe scripts\run_full_calibration.py --bars 2000 --label authoritative-v3
+```
 
-Other examples:
+Optional 1H entry study:
 
-python scripts/scan_history.py --entry-tf 15M --bars 1000
-python scripts/scan_history.py --entry-tf 1H --bars 1000
+```powershell
+.\.venv\Scripts\python.exe scripts\run_full_calibration.py --bars 2000 --label authoritative-v3 --include-1h
+```
 
-The scanner does not place orders and is not a broker simulator.
+Do not use `--allow-no-news` for real Phase 0 validation.
 
-## What success means at this stage
+## Output
 
-Success is not high profit.
+- `data/runtime/calibration/summary.json`
+- `review-5m.csv/json`
+- `review-15m.csv/json`
+- optional `review-1h.csv/json`
+- `data/runtime/tbot-calibration.zip`
 
-Success means the generated zones and rejected/accepted setups are plausible enough to review and refine. Only after the detection logic is calibrated should a serious profitability backtest be built.
+The runner clears stale review files before every calibration so an old 1H
+study cannot contaminate a new primary-timeframe validation.
+
+## Readiness
+
+Run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\preflight_demo.py
+```
+
+Forward demo remains blocked until the calibration readiness gate accepts the
+current schema-v3 contract.
