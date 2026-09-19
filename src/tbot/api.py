@@ -144,7 +144,15 @@ def create_app(
             "mode": "planning_and_demo_only",
             "primary_entry_timeframes": ["5M", "15M"],
             "optional_1h_entry": True,
-            "optional_1h_enabled_by_default": False,
+            "optional_1h_enabled": "1H" in (snapshot.get("active_entry_timeframes") or []),
+            "active_entry_timeframes": snapshot.get("active_entry_timeframes") or [],
+            "trading_window_open": snapshot.get("trading_window_open"),
+            "trading_window_timezone": snapshot.get("trading_window_timezone"),
+            "trading_window_start": snapshot.get("trading_window_start"),
+            "trading_window_end": snapshot.get("trading_window_end"),
+            "news_clear": snapshot.get("news_clear"),
+            "news_reason": snapshot.get("news_reason"),
+            "next_high_impact_event": snapshot.get("next_high_impact_event"),
             "worker": {
                 "status": worker.status,
                 "fresh": worker.fresh,
@@ -196,6 +204,40 @@ def create_app(
         primary_outcomes = Counter(
             row.get("outcome_status") or "UNRESOLVED" for row in primary
         )
+        by_timeframe = {}
+        for timeframe in ("5M", "15M", "1H"):
+            subset = [row for row in primary if row.get("entry_timeframe") == timeframe]
+            if subset:
+                by_timeframe[timeframe] = {
+                    "events": len(subset),
+                    "outcomes": dict(
+                        Counter(row.get("outcome_status") or "UNRESOLVED" for row in subset)
+                    ),
+                }
+        by_direction = {}
+        for direction in ("BUY", "SELL"):
+            subset = [row for row in primary if row.get("direction") == direction]
+            if subset:
+                by_direction[direction] = {
+                    "events": len(subset),
+                    "outcomes": dict(
+                        Counter(row.get("outcome_status") or "UNRESOLVED" for row in subset)
+                    ),
+                }
+        by_execution_number = {}
+        for execution_number in ("1", "2", "3"):
+            subset = [
+                row
+                for row in primary
+                if str(row.get("execution_number") or "") == execution_number
+            ]
+            if subset:
+                by_execution_number[execution_number] = {
+                    "events": len(subset),
+                    "outcomes": dict(
+                        Counter(row.get("outcome_status") or "UNRESOLVED" for row in subset)
+                    ),
+                }
 
         simulation_rows = [
             row
@@ -230,6 +272,9 @@ def create_app(
             "secondary_zone_count": max(len(ready) - len(primary), 0),
             "outcomes_all_ready_zones": dict(outcomes),
             "outcomes_primary_events": dict(primary_outcomes),
+            "by_timeframe": by_timeframe,
+            "by_direction": by_direction,
+            "by_execution_number": by_execution_number,
             "forward_demo_outcomes": dict(forward_outcomes),
             "account_simulation": {
                 "valid_for_current_strategy_contract": readiness.ready_for_forward_demo,
@@ -403,11 +448,17 @@ def create_app(
                 "news_provider_connected": snapshot.get(
                     "news_provider_connected", False
                 ),
+                "trading_window_open": snapshot.get("trading_window_open"),
+                "trading_window_timezone": snapshot.get("trading_window_timezone"),
+                "trading_window_start": snapshot.get("trading_window_start"),
+                "trading_window_end": snapshot.get("trading_window_end"),
+                "next_high_impact_event": snapshot.get("next_high_impact_event"),
+                "active_entry_timeframes": snapshot.get("active_entry_timeframes") or [],
                 "execution_enabled": False,
                 "source": "worker_snapshot",
                 "warning": (
-                    "Latest READY plan is a planning signal from the v1 candidate "
-                    "detector, not an executed trade."
+                    "Latest READY plan is a planning signal from the authoritative "
+                    "Flip & Dip detector, not an executed trade."
                 ),
             }
 
