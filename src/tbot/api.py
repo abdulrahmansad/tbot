@@ -80,7 +80,7 @@ def create_app(
         return {
             "status": "ok",
             "symbol": "XAUUSD",
-            "strategy_version": version.version,
+            "strategy_version": version.name,
             "strategy_state": version.state.value,
             "execution_enabled": False,
             "mode": "planning_and_demo_only",
