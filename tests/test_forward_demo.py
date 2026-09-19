@@ -92,11 +92,11 @@ def test_forward_demo_records_fresh_plan_once(tmp_path):
     first = service.poll_once(entry_timeframes=("5M",), now=START)
     second = service.poll_once(entry_timeframes=("5M",), now=START)
 
-    assert first.created_plan_ids == ("demo-stable-5M",)
+    assert first.created_plan_ids == ("demo-stable-5M-e1",)
     assert second.created_plan_ids == ()
     rows = service.store.read_raw()
     assert len(rows) == 1
-    assert rows[0]["plan_id"] == "demo-stable-5M"
+    assert rows[0]["plan_id"] == "demo-stable-5M-e1"
 
 
 def test_forward_demo_writes_live_snapshot(tmp_path):
