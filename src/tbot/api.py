@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse
 
+from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
 from .data.twelve_data import TwelveDataXauUsdProvider
 from .flip_dip.backtest import ProvisionalBacktester
@@ -74,9 +77,13 @@ def create_app(
         ),
     )
 
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard() -> str:
+        return DASHBOARD_HTML
+
     @app.get("/api/health")
     def health() -> dict[str, Any]:
-        version = provisional_v0()
+        version = provisional_v0(datetime.now(timezone.utc))
         return {
             "status": "ok",
             "symbol": "XAUUSD",
