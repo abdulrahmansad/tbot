@@ -2,68 +2,68 @@
 
 ## Code-complete requirements
 
-1. Strategy contract is encoded.
-2. XAUUSD 5M/15M/1H/4H data can be normalized.
-3. Automated Flip Zone detection exists.
-4. Rejection scoring exists.
-5. Higher-timeframe structure detection exists.
-6. Strict event ordering and no-lookahead timing are enforced.
-7. Retest detection exists.
-8. Trading-window rules are enforced.
-9. News blackout logic and a real calendar adapter exist.
-10. Candle-close invalidation exists.
-11. Minimum 5R logic exists.
-12. Configurable partial TP logic exists.
-13. Stabilized planning-risk normalization exists.
-14. Max three executions per zone is implemented.
-15. Historical scan/export works.
-16. Independent-event clustering works.
-17. Historical outcome tracking works.
-18. Milestones and terminal outcomes are distinct.
-19. Calibration analysis/readiness reporting works.
-20. Forward-demo discovery and persistence work.
-21. Forward-demo outcome tracking works.
-22. Live worker snapshot and heartbeat work.
-23. Dashboard/API read shared worker state.
-24. Web traffic does not multiply market-data API calls.
-25. Private hosted access can be protected.
-26. CI tests pass.
-27. No broker execution code exists.
+1. Authoritative owner strategy contract encoded.
+2. XAUUSD 5M/15M/1H/4H candles normalized.
+3. Primary entries default to 5M/15M.
+4. 1H entry requires explicit opt-in.
+5. Flip-through then return-through chronology enforced.
+6. Healthy-rejection gate enforced with configurable candidate threshold.
+7. Required HTF CHOCH/BOS must be observed before retest.
+8. Distinct retest episodes are counted objectively.
+9. Maximum three executions per zone is enforced end-to-end.
+10. Every execution has a unique identity in calibration and forward demo.
+11. Candle-close invalidation is entry-timeframe specific.
+12. Intended risk defaults to 5% and cannot exceed 5%.
+13. Mathematical minimum 5R target is explicit in each READY plan.
+14. Partial TP configuration is explicit; no invented owner ladder.
+15. Istanbul 23:00→20:00 trading window is enforced.
+16. High-impact news gate is enforced at retest time.
+17. Historical calibration applies the news gate.
+18. Historical calibration uses schema v3.
+19. Old schema/calibration cannot start a real forward demo.
+20. Historical and forward outcomes track milestones and terminal state separately.
+21. Forward plan persistence allows e1/e2/e3 and prevents duplicates.
+22. Worker snapshot/heartbeat and dashboard are read-only.
+23. Market/news provider keys remain worker-only.
+24. No broker execution code/endpoints exist.
+25. CI is green.
 
-## Historical validation requirements
+## Historical validation requirements before forward demo
 
-Before forward demo:
+- schema_version = 3
+- strategy_contract_version = owner-flip-dip-2026-09-19
+- primary timeframes 5M and 15M are both present
+- optional 1H is only included when explicitly requested
+- execution model = distinct retest episodes with correct-side rearm
+- max executions per zone = 3
+- historical news filter applied
+- stabilized structural risk model used
+- at least 2,000 bars requested
+- at least 150 independent primary events across primary timeframes
+- ambiguous-event rate <= 5%
+- no performance threshold is used as a readiness shortcut
 
-- strict-sequence calibration completed,
-- stabilized structural risk model used,
-- at least 2,000 bars requested,
-- at least 150 independent primary events available,
-- ambiguous primary outcomes remain within the calibration-quality ceiling,
-- no performance threshold is used as a readiness shortcut.
+The old schema-v2 validation does **not** satisfy these requirements.
 
-The current v1 candidate satisfies these historical data-quality gates.
+## Forward-demo requirements before owner approval
 
-## Forward-demo requirements
-
-Before owner approval:
-
-- TWELVE_DATA_API_KEY configured for the worker,
-- live news protection available through FMP or the built-in FinanceCalendar fallback,
-- forward worker runs continuously,
-- worker heartbeat remains healthy,
-- fresh plans are recorded once,
-- outcomes are tracked to terminal state,
-- one-week forward-demo results are reviewed,
-- partial TP policy is confirmed or revised by the owner.
+- current schema-v3 calibration passes readiness
+- old runtime state is reset
+- worker runs continuously
+- worker heartbeat remains healthy
+- news protection is connected
+- e1/e2/e3 plans are recorded once each
+- outcomes are tracked to terminal state
+- one-week forward-demo behavior is reviewed
+- owner supplies/confirms partial TP ladder
 
 ## Public-launch requirements
 
 Before external/public users are served:
 
-- confirm an appropriate external-display/commercial market-data license,
-- configure private/public access appropriately,
-- preserve the planning/demo and execution-disabled product boundary,
-- deploy shared persistent storage for worker/web state.
+- confirm external-display/commercial market-data licensing
+- preserve planning/demo-only and execution-disabled boundary
+- deploy shared persistent storage
+- configure access controls appropriately
 
-Phase 0 code completeness does not mean the strategy is profitable or
-owner-approved.
+Phase 0 completion does not mean profitable, live-trading safe, or owner-approved.
