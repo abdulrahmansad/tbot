@@ -34,8 +34,9 @@ def test_outcome_tracks_partial_target_before_close_invalidation():
     result = simulate_historical_outcome(
         zone=sell_zone(),
         candles=[
-            candle(5, 99.5, 100.5, 95.5, 98.0),
-            candle(10, 98.0, 103.5, 97.0, 103.0),
+            candle(5, 99.5, 100.5, 99.0, 99.5),
+            candle(10, 99.5, 100.5, 95.5, 98.0),
+            candle(15, 98.0, 103.5, 97.0, 103.0),
         ],
         activated_at=START + timedelta(minutes=5),
     )
@@ -49,7 +50,8 @@ def test_same_candle_target_and_invalidation_is_ambiguous():
     result = simulate_historical_outcome(
         zone=sell_zone(),
         candles=[
-            candle(5, 100.0, 104.0, 95.0, 103.0),
+            candle(5, 100.0, 101.0, 99.0, 100.0),
+            candle(10, 100.0, 104.0, 95.0, 103.0),
         ],
         activated_at=START + timedelta(minutes=5),
     )
