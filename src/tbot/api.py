@@ -4,7 +4,7 @@ import csv
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import HTMLResponse
@@ -155,8 +155,12 @@ def create_app(
 
     @app.get("/api/performance")
     def performance(
-        starting_balance: float = Query(default=100.0, gt=0, le=1_000_000_000),
-        risk_percent: float = Query(default=5.0, gt=0, le=100),
+        starting_balance: Annotated[
+            float, Query(gt=0, le=1_000_000_000)
+        ] = 100.0,
+        risk_percent: Annotated[
+            float, Query(gt=0, le=100)
+        ] = 5.0,
     ) -> dict[str, Any]:
         rows = _read_rows(root)
         ready = [row for row in rows if row.get("status") == "PLAN_READY"]
