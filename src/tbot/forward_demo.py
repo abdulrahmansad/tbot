@@ -130,6 +130,11 @@ class ForwardDemoService:
             clusters = cluster_ready_setups(setups)
             ready_primary_count += len(clusters)
 
+            freshness = timedelta(
+                minutes=_TIMEFRAME_MINUTES[entry_tf] * fresh_bars
+            )
+            newest_candle_at = entry[-1].timestamp
+
             latest_primary = None
             if clusters:
                 primary_setups = [
@@ -138,7 +143,10 @@ class ForwardDemoService:
                     if cluster.primary_zone_id in by_zone
                 ]
                 primary_setups = [
-                    setup for setup in primary_setups if setup.retest_at is not None
+                    setup
+                    for setup in primary_setups
+                    if setup.retest_at is not None
+                    and newest_candle_at - setup.retest_at <= freshness
                 ]
                 if primary_setups:
                     latest_primary = max(
@@ -182,14 +190,18 @@ class ForwardDemoService:
                 "latest_candle_at": entry[-1].timestamp.isoformat(),
                 "candidate_count": len(setups),
                 "ready_primary_count": len(clusters),
+                "fresh_primary_count": sum(
+                    1
+                    for cluster in clusters
+                    if cluster.primary_zone_id in by_zone
+                    and by_zone[cluster.primary_zone_id].retest_at is not None
+                    and newest_candle_at
+                    - by_zone[cluster.primary_zone_id].retest_at
+                    <= freshness
+                ),
                 "latest_ready_plan": latest_payload,
                 "execution_enabled": False,
             }
-
-            freshness = timedelta(
-                minutes=_TIMEFRAME_MINUTES[entry_tf] * fresh_bars
-            )
-            newest_candle_at = entry[-1].timestamp
 
             for cluster in clusters:
                 setup = by_zone[cluster.primary_zone_id]
