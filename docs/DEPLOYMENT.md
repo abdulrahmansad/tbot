@@ -45,15 +45,34 @@ The worker requires:
 
 TWELVE_DATA_API_KEY
 
-Optional but recommended before the forward-demo week:
+Required for the real forward-demo validation period:
 
 FMP_API_KEY
 
-The web service does not need either API key.
+The web service does not need either provider API key.
 
-Secrets must be configured in the worker hosting environment only. Do not put
+For a hosted private dashboard, configure:
+
+TBOT_DASHBOARD_USERNAME
+TBOT_DASHBOARD_PASSWORD
+
+Provider secrets must be configured in the worker environment only. Dashboard
+access credentials must be configured in the web environment only. Do not put
 them in source code, frontend JavaScript, Docker images, Git, or the web
 service environment.
+
+## Preflight
+
+Before starting the real demo:
+
+python scripts/preflight_demo.py
+
+For a hosted private demo:
+
+python scripts/preflight_demo.py --hosted
+
+The hosted check requires market data, news protection, historical calibration
+readiness, and private dashboard credentials.
 
 ## Local Compose
 
@@ -134,3 +153,33 @@ Do not expose the app as an owner-approved strategy until:
 
 The current historical state is flip-dip-v1-candidate and remains
 REVIEW_REQUIRED until forward-demo evidence is reviewed.
+
+
+## Provider request budgets
+
+The worker uses a timeframe-aware market cache. Under continuous one-minute
+worker cycles, upstream Twelve Data refreshes occur approximately once per
+actual timeframe bucket rather than once per scan:
+
+- 5M: about 288 requests/day
+- 15M: about 96 requests/day
+- 1H: about 24 requests/day
+- 4H: about 6 requests/day
+
+Total normal market-data refreshes are about 414/day before retries or unusual
+operations.
+
+The FMP economic calendar is cached for 10 minutes, so normal continuous use
+is about 144 calendar requests/day.
+
+These are engineering estimates, not provider guarantees. Provider limits and
+licenses must be checked before production/public launch.
+
+## Private-demo access
+
+When TBOT_DASHBOARD_USERNAME and TBOT_DASHBOARD_PASSWORD are configured, the
+hosted FastAPI app protects dashboard/API routes with HTTP Basic authentication.
+The minimal /api/health endpoint remains unauthenticated for uptime checks.
+
+Do not use private-demo authentication as a substitute for an appropriate
+external-display market-data license.
