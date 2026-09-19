@@ -35,6 +35,8 @@ FIELDNAMES = [
     "risk_percent",
     "invalidation_rule",
     "outcome_status",
+    "outcome_terminal",
+    "outcome_terminal_reason",
     "outcome_resolved_at",
     "entry_reference_price",
     "sizing_reference_price",
@@ -95,6 +97,8 @@ def setup_to_row(
         "risk_percent": plan.risk_percent if plan else "",
         "invalidation_rule": plan.invalidation_rule if plan else "",
         "outcome_status": outcome.status.value if outcome else "",
+        "outcome_terminal": outcome.terminal if outcome else "",
+        "outcome_terminal_reason": outcome.terminal_reason if outcome else "",
         "outcome_resolved_at": (
             outcome.resolved_at.isoformat()
             if outcome and outcome.resolved_at is not None
