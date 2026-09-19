@@ -264,6 +264,7 @@ class RejectionEvaluation:
     score: float
     observed_at: object | None
     sample_size: int
+    sizing_reference_price: float | None
 
 
 class ProvisionalRejectionEvaluator:
@@ -275,7 +276,12 @@ class ProvisionalRejectionEvaluator:
         after = [c for c in candles if c.timestamp >= zone.created_at]
         required = self.config.rejection_lookahead_candles + 1
         if len(after) < required:
-            return RejectionEvaluation(score=0.0, observed_at=None, sample_size=len(after))
+            return RejectionEvaluation(
+                score=0.0,
+                observed_at=None,
+                sample_size=len(after),
+                sizing_reference_price=None,
+            )
 
         width = max(zone.upper_price - zone.lower_price, 1e-9)
         sample = after[:required]
@@ -284,9 +290,17 @@ class ProvisionalRejectionEvaluator:
         if zone.direction is Direction.SELL:
             best_departure = max(0.0, origin.close - min(c.low for c in sample[1:]))
             directional_closes = sum(1 for c in sample[1:] if c.close < zone.lower_price)
+            sizing_reference = max(
+                zone.upper_price,
+                max(c.high for c in sample),
+            )
         else:
             best_departure = max(0.0, max(c.high for c in sample[1:]) - origin.close)
             directional_closes = sum(1 for c in sample[1:] if c.close > zone.upper_price)
+            sizing_reference = min(
+                zone.lower_price,
+                min(c.low for c in sample),
+            )
 
         departure_component = min(
             best_departure / (width * self.config.minimum_departure_zone_widths),
@@ -307,6 +321,7 @@ class ProvisionalRejectionEvaluator:
                 minutes=_timeframe_minutes(zone.timeframe.value)
             ),
             sample_size=len(sample),
+            sizing_reference_price=sizing_reference,
         )
 
     def score(self, zone: FlipZone, candles: Sequence[Candle]) -> float:
