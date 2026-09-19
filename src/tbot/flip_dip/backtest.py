@@ -14,6 +14,7 @@ from .provisional import (
     ProvisionalStructureDetector,
 )
 from .retest import first_retest_after
+from .sizing import stabilized_sizing_reference
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,12 @@ class ProvisionalBacktester:
                         reasons.append("no_retest_found")
                         decision = PlanDecision(plan=None, reasons=tuple(reasons))
                     else:
+                        sizing_reference = stabilized_sizing_reference(
+                            zone=zone,
+                            structural_reference=rejection.sizing_reference_price,
+                            candles=entry_candles,
+                            before=retest.timestamp,
+                        )
                         zone.state = SetupState.WAITING_FOR_RETEST
                         decision = self.planner.build_plan(
                             zone=zone,
@@ -111,14 +118,14 @@ class ProvisionalBacktester:
                             rejection_is_healthy=healthy,
                             news=NewsGate(clear=True),
                             planned_rr=planned_rr,
-                            sizing_reference_price=rejection.sizing_reference_price,
+                            sizing_reference_price=sizing_reference,
                         )
                         if decision.plan is not None:
                             outcome = simulate_historical_outcome(
                                 zone=zone,
                                 candles=entry_candles,
                                 activated_at=retest.timestamp,
-                                sizing_reference_price=rejection.sizing_reference_price,
+                                sizing_reference_price=sizing_reference,
                             )
 
             output.append(
