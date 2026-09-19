@@ -42,6 +42,12 @@ def run_one(provider, scanner, entry_tf, confirmation_tf, bars, out_dir):
             reasons.update(setup.decision.reasons)
 
     clusters = cluster_ready_setups(setups)
+    primary_zone_ids = {cluster.primary_zone_id for cluster in clusters}
+    primary_outcomes = Counter(
+        setup.outcome.status.value
+        for setup in setups
+        if setup.zone.id in primary_zone_ids and setup.outcome is not None
+    )
 
     return {
         "entry_timeframe": entry_tf,
@@ -54,6 +60,7 @@ def run_one(provider, scanner, entry_tf, confirmation_tf, bars, out_dir):
         "secondary_zone_count": max(ready - len(clusters), 0),
         "skipped_count": len(setups) - ready,
         "outcomes": dict(outcomes.most_common()),
+        "primary_outcomes": dict(primary_outcomes.most_common()),
         "skip_reasons": dict(reasons.most_common()),
         "csv": str(csv_path),
         "json": str(json_path),
@@ -86,6 +93,7 @@ def main():
             f"skipped={summary['skipped_count']}"
         )
         print(f"  outcomes={summary['outcomes']}")
+        print(f"  primary_outcomes={summary['primary_outcomes']}")
 
     summary_path = out_dir / "summary.json"
     summary_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
