@@ -43,20 +43,23 @@ DASHBOARD_HTML = r"""<!doctype html>
     <button data-tab="plans">Plans</button>
     <button data-tab="performance">Performance</button>
     <button data-tab="history">History</button>
+    <button data-tab="review">Review</button>
   </div>
 
   <section id="live" class="tab">
     <div class="grid">
       <div class="card">
         <div class="eyebrow">Market</div>
-        <div class="price">XAUUSD</div>
+        <div class="price">XAUUSD <span id="marketPrice" style="font-size:18px;color:var(--muted)">—</span></div>
         <div id="liveStatus" class="status">Monitoring</div>
         <div class="tf">
           <button class="active" data-tf="5M">5M</button>
           <button data-tf="15M">15M</button>
+          <button data-tf="1H">1H · secondary</button>
         </div>
         <div id="livePlan" class="plan"><div class="empty">Loading latest planning state…</div></div>
-        <div class="notice">Primary entries: 5M and 15M. 1H→4H remains available only as an explicit opt-in mode.</div>
+        <div id="liveDiagnostics" class="notice"></div>
+        <div class="notice">Primary entries: 5M and 15M. 1H→4H is a valid secondary entry mode and appears here even when the current worker has it disabled.</div>
       </div>
       <div class="card">
         <div class="eyebrow">System</div>
@@ -68,7 +71,11 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div class="kv"><b>Minimum target</b><span>5R</span></div>
           <div class="kv"><b>Risk plan</b><span>5%</span></div>
           <div class="kv"><b>Calibration</b><span id="calibrationReady">Checking…</span></div>
+          <div class="kv"><b>Trading window</b><span id="tradingWindow">Checking…</span></div>
+          <div class="kv"><b>News gate</b><span id="newsGate">Checking…</span></div>
+          <div class="kv"><b>Active TFs</b><span id="activeTfs">—</span></div>
         </div>
+        <div id="nextNews" class="notice"></div>
         <div class="notice">A READY plan is a hypothetical planning signal. TBOT does not place broker orders.</div>
         <div id="newsAttribution" class="notice"></div>
       </div>
@@ -101,10 +108,46 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div id="simCurve" style="margin-top:14px"></div>
       <div class="notice">Hypothetical compounding scenario on primary historical events only. Default payout assumptions: 5R=+5R, 3.5R=+3.5R, 2R=+2R, invalidation=-1R, ambiguous=0R. Candle-close invalidation does not guarantee a real trade would lose exactly 1R.</div>
     </div>
-    <div class="card"><div class="eyebrow">Historical calibration outcomes</div><div id="outcomes"></div><div class="notice">R values here use stabilized structural sizing distance. They are calibration metrics, not broker-realized P&L.</div></div>
+    <div class="card" style="margin-bottom:16px"><div class="eyebrow">Historical calibration outcomes</div><div id="outcomes"></div><div class="notice">R values here use stabilized structural sizing distance. They are calibration metrics, not broker-realized P&L.</div></div>
+    <div class="grid">
+      <div class="card"><div class="eyebrow">By entry timeframe</div><div id="byTimeframe"></div></div>
+      <div class="card"><div class="eyebrow">By execution #</div><div id="byExecution"></div></div>
+    </div>
+    <div class="card" style="margin-top:16px"><div class="eyebrow">By direction</div><div id="byDirection"></div></div>
   </section>
 
   <section id="history" class="tab hidden"><div class="card"><div class="eyebrow">Plan history</div><div id="historyBody"></div></div></section>
+
+  <section id="review" class="tab hidden">
+    <div class="grid">
+      <div class="card">
+        <div class="eyebrow">Phase 0 contract</div>
+        <div class="metric">Owner Flip & Dip</div>
+        <div class="kvs">
+          <div class="kv"><b>Primary entries</b><span>5M → 15M · 15M → 1H</span></div>
+          <div class="kv"><b>Secondary entry</b><span>1H → 4H</span></div>
+          <div class="kv"><b>Executions / zone</b><span>Max 3</span></div>
+          <div class="kv"><b>Invalidation</b><span>Entry-TF candle close</span></div>
+          <div class="kv"><b>Risk cap</b><span>5% / execution</span></div>
+          <div class="kv"><b>Minimum target</b><span>5R</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Forward-demo readiness</div>
+        <div class="metric" id="reviewState">Checking…</div>
+        <div id="reviewDetails" class="notice"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="eyebrow">Still intentionally configurable</div>
+      <div class="kvs">
+        <div class="kv"><b>Flip Zone definition</b><span>Candidate v1</span></div>
+        <div class="kv"><b>Healthy rejection</b><span>Configurable threshold</span></div>
+        <div class="kv"><b>CHOCH/BOS swing model</b><span>Candidate pivot-break model</span></div>
+        <div class="kv"><b>Partial TP ladder</b><span>Owner configuration required</span></div>
+      </div>
+    </div>
+  </section>
 </div>
 <script>
 const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
@@ -136,13 +179,25 @@ async function health(){
  }
  const cal=await get("/api/calibration/status");
  q("#calibrationReady").textContent=cal.ready_for_forward_demo?"Forward-demo ready":"Needs calibration";
+ q("#tradingWindow").textContent=d.trading_window_open===true?"OPEN":d.trading_window_open===false?"BLOCKED":"—";
+ q("#newsGate").textContent=d.news_clear===true?"CLEAR":d.news_clear===false?"BLACKOUT":"—";
+ q("#activeTfs").textContent=(d.active_entry_timeframes||[]).join(" · ")||"—";
+ const next=d.next_high_impact_event;
+ q("#nextNews").textContent=next?("Next high-impact USD event: "+next.title+" · "+next.scheduled_at):"No upcoming high-impact USD event in the current calendar window.";
+ q("#reviewState").textContent=cal.ready_for_forward_demo&&worker.fresh?"DEMO ACTIVE":cal.ready_for_forward_demo?"READY / WORKER OFFLINE":"NOT READY";
+ q("#reviewDetails").textContent="Schema "+(cal.schema_version??"—")+" · "+(cal.primary_events??0)+" primary historical events · "+(cal.ambiguous_primary_events??0)+" ambiguous · worker "+(worker.status||"unknown")+".";
 }
 async function live(){
   q("#livePlan").innerHTML='<div class="empty">Refreshing…</div>';
   const d=await get("/api/live?entry_timeframe="+tf+"&bars=500");
   if(d.status==="not_configured"){q("#liveStatus").textContent="Server data key not configured";q("#livePlan").innerHTML='<div class="empty">Configure the server-side market-data secret to enable live scanning.</div>';return}
+  if(d.status==="worker_snapshot_unavailable"&&tf==="1H"){q("#liveStatus").textContent="1H secondary mode · not active";q("#marketPrice").textContent="—";q("#livePlan").innerHTML='<div class="empty">1H → 4H is supported, but this worker was started without the optional 1H mode.</div>';q("#liveDiagnostics").textContent="To validate 1H properly, include it in calibration and start the worker with --include-1h.";return}
   if(d.status!=="ok"){q("#liveStatus").textContent="Unavailable";q("#livePlan").innerHTML='<div class="empty">Live data unavailable.</div>';return}
   q("#liveStatus").textContent="Monitoring · "+tf+" → "+d.confirmation_timeframe;
+  q("#marketPrice").textContent=d.latest_close==null?"—":Number(d.latest_close).toFixed(2);
+  const skips=d.skip_reason_counts||{};
+  const executions=d.ready_execution_counts||{};
+  q("#liveDiagnostics").textContent="Scan candidates "+(d.candidate_count??0)+" · fresh primary "+(d.fresh_primary_count??0)+" · READY executions e1/e2/e3 "+(executions["1"]??0)+"/"+(executions["2"]??0)+"/"+(executions["3"]??0)+(Object.keys(skips).length?" · top skip "+Object.entries(skips).sort((a,b)=>b[1]-a[1])[0].join(": "):"");
   const p=d.latest_ready_plan;
   if(!p){q("#livePlan").innerHTML='<div class="empty">No READY plan in the current scan window.</div>';return}
   q("#livePlan").innerHTML=`
@@ -153,8 +208,12 @@ async function live(){
       <div class="kv"><b>Rejection</b><span>${fmt(p.rejection_score)}</span></div>
       <div class="kv"><b>HTF structure</b><span>${p.confirmation_timeframe} ${p.structure_kind||"—"}</span></div>
       <div class="kv"><b>Retest</b><span>${p.retest_at||"—"}</span></div>
+      <div class="kv"><b>Execution</b><span>#${p.execution_number||"—"} / 3</span></div>
+      <div class="kv"><b>5R target</b><span>${fmt(p.target_5r_price)}</span></div>
+      <div class="kv"><b>Entry reference</b><span>${fmt(p.entry_reference_price)}</span></div>
+      <div class="kv"><b>Sizing reference</b><span>${fmt(p.sizing_reference_price)}</span></div>
     </div>
-    <div class="notice">${p.invalidation_rule}. Minimum target ${p.minimum_rr}R.</div>`;
+    <div class="notice">${p.invalidation_rule}. Intended risk ${p.risk_percent}% · minimum target ${p.minimum_rr}R · partial TP ${p.partial_tp_configured?"configured":"awaiting owner ladder"}.</div>`;
 }
 async function performance(){
  const balance=Math.max(1,Number(q("#simBalance")?.value||100));
@@ -164,6 +223,10 @@ async function performance(){
  q("#eventCount").textContent=d.independent_event_count??0;q("#secondaryCount").textContent=d.secondary_zone_count??0;
  const o=d.outcomes_primary_events||{};
  q("#outcomes").innerHTML=Object.keys(o).length?'<div class="kvs">'+Object.entries(o).map(([k,v])=>`<div class="kv"><b>${k}</b><span>${v}</span></div>`).join("")+'</div>':'<div class="empty">Run the enhanced calibration to populate outcomes.</div>';
+ const breakdown=src=>Object.keys(src||{}).length?'<div class="kvs">'+Object.entries(src).map(([k,v])=>`<div class="kv"><b>${k} · ${v.events} events</b><span>${Object.entries(v.outcomes||{}).map(([s,n])=>s+":"+n).join(" · ")}</span></div>`).join("")+'</div>':'<div class="empty">No data.</div>';
+ q("#byTimeframe").innerHTML=breakdown(d.by_timeframe);
+ q("#byExecution").innerHTML=breakdown(d.by_execution_number);
+ q("#byDirection").innerHTML=breakdown(d.by_direction);
  const s=d.account_simulation||{};
  const simValidity=q("#simValidity");
  if(s.valid_for_current_strategy_contract===false){
@@ -206,7 +269,7 @@ function table(items){
 }
 async function plans(){const d=await get("/api/plans");q("#plansBody").innerHTML=table(d.items)}
 async function history(){const d=await get("/api/history?limit=100&primary_only=true");q("#historyBody").innerHTML=table(d.items)}
-qa(".nav button").forEach(b=>b.onclick=()=>{qa(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");qa(".tab").forEach(x=>x.classList.add("hidden"));q("#"+b.dataset.tab).classList.remove("hidden");if(b.dataset.tab==="plans")plans();if(b.dataset.tab==="performance")performance();if(b.dataset.tab==="history")history()});
+qa(".nav button").forEach(b=>b.onclick=()=>{qa(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");qa(".tab").forEach(x=>x.classList.add("hidden"));q("#"+b.dataset.tab).classList.remove("hidden");if(b.dataset.tab==="plans")plans();if(b.dataset.tab==="performance")performance();if(b.dataset.tab==="history")history();if(b.dataset.tab==="review")health()});
 qa(".tf button").forEach(b=>b.onclick=()=>{qa(".tf button").forEach(x=>x.classList.remove("active"));b.classList.add("active");tf=b.dataset.tf;live()});
 q("#runSim").onclick=performance;
 health();live();
