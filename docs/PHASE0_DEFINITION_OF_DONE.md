@@ -48,7 +48,7 @@ The current v1 candidate satisfies these historical data-quality gates.
 Before owner approval:
 
 - TWELVE_DATA_API_KEY configured for the worker,
-- FMP_API_KEY configured for live news protection,
+- live news protection available through FMP or the built-in FinanceCalendar fallback,
 - forward worker runs continuously,
 - worker heartbeat remains healthy,
 - fresh plans are recorded once,
