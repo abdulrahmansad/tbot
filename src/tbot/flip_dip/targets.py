@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from typing import Iterable
 
 
+class PartialTakeProfitNotConfigured(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class TakeProfitLevel:
     r_multiple: float
@@ -28,18 +32,24 @@ class TakeProfitPlan:
             raise ValueError("At least one target must reach the minimum R requirement")
 
 
-def default_provisional_tp_plan() -> TakeProfitPlan:
-    """Temporary configurable v0 partial exits.
-
-    This is not claimed as the trader's final TP method. It exists so demo and
-    reporting logic can operate until the owner defines exact partials.
-    """
+def plan_from_levels(
+    levels: Iterable[tuple[float, float]],
+    *,
+    minimum_rr: float = 5.0,
+) -> TakeProfitPlan:
     plan = TakeProfitPlan(
-        levels=(
-            TakeProfitLevel(r_multiple=2.0, close_percent=25.0),
-            TakeProfitLevel(r_multiple=3.5, close_percent=25.0),
-            TakeProfitLevel(r_multiple=5.0, close_percent=50.0),
+        levels=tuple(
+            TakeProfitLevel(r_multiple=float(r), close_percent=float(percent))
+            for r, percent in levels
         )
     )
-    plan.validate(minimum_rr=5.0)
+    plan.validate(minimum_rr=minimum_rr)
     return plan
+
+
+def default_provisional_tp_plan() -> TakeProfitPlan:
+    """Compatibility guard: no owner-approved default partial ladder exists."""
+    raise PartialTakeProfitNotConfigured(
+        "Owner strategy requires partial exits, but exact TP levels/percentages "
+        "are not defined. Configure FlipDipConfig.partial_tp_levels explicitly."
+    )
