@@ -1,108 +1,98 @@
 # tbot — XAUUSD Flip & Dip Planner
 
-TBOT is a planning and forward-demo system for the owner's XAUUSD Flip & Dip strategy.
+TBOT is a planning, calibration, and forward-demo system for the owner's XAUUSD Flip & Dip strategy.
 
 **It never places broker orders.**
 
-Current strategy version: `flip-dip-v1-candidate`
+Current strategy version: `flip-dip-v1-authoritative`
 
-State: `REVIEW_REQUIRED`
+Current state: `CALIBRATING` until schema-v3 historical validation passes.
 
-## Current capabilities
+## Authoritative Phase 0 contract
 
-- XAUUSD-only scope
-- 5M / 15M / 1H entry timeframes
-- 15M / 1H / 4H confirmation mapping
-- strict no-lookahead event chronology
-- deterministic Flip Zones
-- rejection scoring and HTF BOS confirmation
-- correct-side retest detection
-- event clustering / primary-zone ranking
-- Istanbul trading window
+- XAUUSD only
+- primary entries: 5M and 15M
+- optional 1H entry mode only when explicitly enabled
+- confirmation mapping: 5M→15M, 15M→1H, optional 1H→4H
+- Flip Zone → flip through → return through → healthy rejection → HTF CHOCH/BOS → later retest
+- up to 3 distinct retest executions per zone
+- entry-timeframe candle-close invalidation
+- default 5% risk per execution, never above 5%
+- minimum 5R mathematical target
+- Istanbul 23:00→20:00 entry window
 - high-impact USD news blackout
-- stabilized structural risk normalization
-- 2R / 3.5R / 5R milestone tracking
-- candle-close invalidation
-- separate milestone vs terminal outcome state
-- 2,000-bar historical validation support
-- forward-demo discovery / deduplication / outcome tracking
-- worker-generated live snapshot and heartbeat monitoring
-- read-only FastAPI dashboard
-- Live / Plans / Performance / History UI
-- worker-only market/news API secrets
-- timeframe-aware Twelve Data caching
-- economic-calendar caching
-- optional private dashboard HTTP Basic protection
-- Docker / Compose deployment
-- CI regression tests
+- no liquidity concepts or unrelated indicators
+- partial exits required, but exact owner TP ladder is still unconfigured
 
-## Strategy boundary
+See `docs/STRATEGY_SPEC.md`.
 
-The strategy deliberately excludes liquidity sweeps, equal highs/lows, previous day/session highs/lows, liquidity pools, RSI, MACD, moving averages, Fibonacci, volume indicators, and unrelated SMC rules.
+## Important validation state
 
-The current detector is frozen as a historical-validation candidate for forward demo. It is not claimed to be profitable or owner-approved.
+The old 2,000-bar v2 calibration is **superseded** because it modeled first executions only and treated 1H as a normal primary entry.
 
-## Install
+Before restarting forward demo, run a new schema-v3 calibration:
 
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-pip install -e ".[dev]"
-pytest -q
+```powershell
+cd "$HOME\tbot"
+git pull
+.\.venv\Scripts\python.exe scripts\run_full_calibration.py --bars 2000 --label authoritative-v3
 ```
 
-## Calibration
+Optional 1H calibration:
 
-```bash
-python scripts/run_full_calibration.py
-python scripts/run_full_calibration.py --bars 2000 --label validation-2000
-python scripts/analyze_calibration.py
+```powershell
+.\.venv\Scripts\python.exe scripts\run_full_calibration.py --bars 2000 --label authoritative-v3 --include-1h
 ```
 
-## Forward-demo prerequisites
+Then check:
 
-Copy `.env.example` to `.env`.
-
-Required for the real forward-demo period:
-
-- `TWELVE_DATA_API_KEY`
-- `FMP_API_KEY` is optional; TBOT falls back to FinanceCalendar if FMP is unavailable.
-
-For a hosted private dashboard also set:
-
-- `TBOT_DASHBOARD_USERNAME`
-- `TBOT_DASHBOARD_PASSWORD`
-
-Check readiness:
-
-```bash
-python scripts/preflight_demo.py --hosted
+```powershell
+.\.venv\Scripts\python.exe scripts\preflight_demo.py
 ```
 
-## Run locally with Docker Compose
+A real forward-demo worker will refuse to start until the current calibration matches the authoritative schema-v3 contract.
 
-```bash
-docker compose up --build
+## Clean restart after strategy changes
+
+After a successful new calibration:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\reset_phase0_runtime.py --confirm
+.\.venv\Scripts\python.exe scripts\run_forward_demo.py --interval 60
 ```
 
-The worker owns market/news provider access. The web service reads the shared runtime snapshot and does not call Twelve Data directly.
+## Dashboard
 
-## Important data-license boundary
+```powershell
+.\.venv\Scripts\python.exe scripts\run_server.py
+```
 
-The current deployment should be treated as private/internal forward-demo validation until the selected market-data license explicitly permits the intended public/external display use.
+Open `http://localhost:8000`.
 
-See `docs/DATA_LICENSING.md`.
+## Historical account simulator
 
-## Documentation
+Performance includes a hypothetical compounding scenario (for example, starting with $100 at 5% risk).
+
+It is **not exact strategy P&L** until the owner defines the partial TP ladder and the new strategy-contract calibration is valid.
+
+## Explicitly excluded
+
+- broker execution
+- liquidity sweeps
+- equal highs/lows
+- previous day/session high/low rules
+- liquidity pools
+- RSI
+- MACD
+- moving averages
+- Fibonacci
+- volume indicators
+- unrelated SMC logic
+
+## Key docs
 
 - `docs/STRATEGY_SPEC.md`
-- `docs/ARCHITECTURE.md`
-- `docs/OUTCOME_CALIBRATION.md`
-- `docs/V1_VALIDATION_2000.md`
-- `docs/DEPLOYMENT.md`
-- `docs/DATA_LICENSING.md`
 - `docs/PHASE0_DEFINITION_OF_DONE.md`
+- `docs/CALIBRATION_WORKFLOW.md`
+- `docs/DEMO_PROTOCOL.md`
 - `docs/STATUS.md`
