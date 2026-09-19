@@ -94,7 +94,7 @@ def setup_to_row(
         "skip_reasons": "|".join(setup.decision.reasons),
         "confirmation_timeframe": plan.confirmation_timeframe if plan else "",
         "structure_kind": setup.structure.kind if setup.structure else "",
-        "execution_number": setup.execution_number if setup.execution_number > 0 else "",
+        "execution_number": setup.effective_execution_number if setup.effective_execution_number > 0 else "",
         "minimum_rr": plan.minimum_rr if plan else "",
         "risk_percent": plan.risk_percent if plan else "",
         "invalidation_rule": plan.invalidation_rule if plan else "",
