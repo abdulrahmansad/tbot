@@ -1,3 +1,16 @@
+# LEGACY / SUPERSEDED VALIDATION
+
+This report is retained for audit history only.
+
+It is **not valid for the current authoritative strategy contract** because it:
+- modeled only the first execution/retest per zone,
+- treated 1H as a normal primary entry timeframe,
+- predates schema-v3 historical news filtering and execution-specific identities.
+
+Do not use this report to declare the current strategy forward-demo ready.
+
+---
+
 # Flip & Dip V1 Candidate — 2,000-Bar Validation
 
 Date: 2026-09-19
