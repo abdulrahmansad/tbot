@@ -23,6 +23,8 @@ FIELDNAMES = [
     "zone_lower",
     "zone_upper",
     "zone_width",
+    "zone_mid_price",
+    "zone_width_bps",
     "rejection_score",
     "status",
     "skip_reasons",
@@ -76,6 +78,12 @@ def setup_to_row(
         "zone_lower": zone.lower_price,
         "zone_upper": zone.upper_price,
         "zone_width": zone.upper_price - zone.lower_price,
+        "zone_mid_price": (zone.upper_price + zone.lower_price) / 2.0,
+        "zone_width_bps": (
+            ((zone.upper_price - zone.lower_price)
+            / max((zone.upper_price + zone.lower_price) / 2.0, 1e-9))
+            * 10000.0
+        ),
         "rejection_score": round(setup.rejection_score, 4),
         "status": "PLAN_READY" if plan is not None else "SKIP",
         "skip_reasons": "|".join(setup.decision.reasons),
