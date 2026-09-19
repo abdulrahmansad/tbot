@@ -132,3 +132,24 @@ def test_calibration_status_missing_summary_is_not_ready(tmp_path):
     assert result["ready_for_forward_demo"] is False
     assert "calibration_summary_missing" in result["reasons"]
     assert result["does_not_claim_profitability"] is True
+
+
+def test_performance_exposes_hypothetical_account_simulation(tmp_path):
+    csv_path = tmp_path / "review-5m.csv"
+    csv_path.write_text(
+        "status,cluster_primary,outcome_status,retest_at,created_at\n"
+        "PLAN_READY,true,TARGET_5R,2026-01-01T00:00:00+00:00,2025-12-31T00:00:00+00:00\n"
+        "PLAN_READY,true,INVALIDATED,2026-01-02T00:00:00+00:00,2026-01-01T00:00:00+00:00\n",
+        encoding="utf-8",
+    )
+    app = create_app(calibration_dir=tmp_path)
+    result = endpoint(app, "/api/performance")(
+        starting_balance=100.0,
+        risk_percent=5.0,
+    )
+
+    sim = result["account_simulation"]
+    assert sim["starting_balance"] == 100.0
+    assert sim["ending_balance"] == 118.75
+    assert sim["event_count"] == 2
+    assert sim["assumptions"]["INVALIDATED"] == -1.0
