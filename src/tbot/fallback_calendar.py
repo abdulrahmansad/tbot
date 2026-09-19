@@ -16,6 +16,7 @@ class FallbackEconomicCalendarProvider:
             raise ValueError("at least one calendar provider is required")
         self.last_provider_name: str | None = None
         self.last_error: str | None = None
+        self.last_failures: list[str] = []
 
     def fetch_events(
         self,
@@ -28,11 +29,13 @@ class FallbackEconomicCalendarProvider:
             try:
                 events = provider.fetch_events(start=start, end=end)
                 self.last_provider_name = type(provider).__name__
+                self.last_failures = list(errors)
                 self.last_error = None
                 return events
             except Exception as exc:
                 errors.append(f"{type(provider).__name__}: {type(exc).__name__}: {exc}")
 
+        self.last_failures = list(errors)
         self.last_error = " | ".join(errors)
         raise RuntimeError(
             "all economic calendar providers failed: " + self.last_error
