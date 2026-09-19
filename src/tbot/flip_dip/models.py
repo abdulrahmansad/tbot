@@ -91,6 +91,7 @@ class TradePlan:
     minimum_rr: float
     risk_percent: float
     execution_number: int
+    strategy_contract_version: str = "owner-flip-dip-2026-09-19"
     sizing_reference_price: float | None = None
     entry_reference_price: float | None = None
     target_5r_price: float | None = None
