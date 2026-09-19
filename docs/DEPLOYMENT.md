@@ -75,7 +75,10 @@ For a hosted private demo:
 python scripts/preflight_demo.py --hosted
 
 The hosted check requires market data, news protection, historical calibration
-readiness, and private dashboard credentials.
+readiness, and private dashboard credentials. By default preflight performs a
+real provider smoke test: one small Twelve Data candle request and one calendar
+request through the fallback chain. Use --skip-network only for offline config
+inspection.
 
 ## Local Compose
 
@@ -195,8 +198,12 @@ external-display market-data license.
 News protection must not fail open just because the preferred provider is unavailable.
 The worker tries providers in this order:
 
-1. FMP, when FMP_API_KEY is configured.
+1. XOOMAR free US macro calendar.
 2. FinanceCalendar free API.
+3. FMP only when FMP_API_KEY is configured.
+
+This order avoids repeatedly hitting a known plan-gated FMP endpoint when a
+free US high-impact calendar is already available.
 
 Only high-impact US/Federal Reserve events from the fallback feed are converted
 into USD/XAUUSD blackout events. The live snapshot and health API expose the
