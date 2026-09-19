@@ -5,6 +5,8 @@ import os
 import time
 from datetime import datetime, timezone
 
+from dotenv import load_dotenv
+
 from tbot.data.cached import TimeframeCachedMarketDataProvider
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
@@ -30,6 +32,8 @@ def run_cycle(discovery: ForwardDemoService, tracker: ForwardOutcomeTracker) -> 
 
 
 def main() -> None:
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         description="Run TBOT forward-demo monitoring. No broker execution."
     )
