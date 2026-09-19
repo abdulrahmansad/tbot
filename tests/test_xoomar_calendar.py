@@ -12,8 +12,8 @@ def test_xoomar_parses_high_impact_us_event():
     payload = {
         "data": [
             {
-                "name": "US CPI",
-                "scheduled_at": "2026-09-19T12:30:00Z",
+                "eventName": "US CPI",
+                "scheduledAt": "2026-09-19T12:30:00Z",
                 "importance": "high",
                 "source": "bls",
             }
