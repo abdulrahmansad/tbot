@@ -65,15 +65,53 @@ def test_performance_reads_calibration_rows(tmp_path):
     assert result["outcomes_primary_events"] == {"TARGET_5R": 1}
 
 
-def test_live_reports_not_configured_without_market_provider(monkeypatch, tmp_path):
-    monkeypatch.delenv("TWELVE_DATA_API_KEY", raising=False)
-    monkeypatch.setattr("tbot.api.TwelveDataXauUsdProvider", lambda: (_ for _ in ()).throw(ValueError("missing")))
-
-    app = create_app(calibration_dir=tmp_path)
+def test_live_reports_worker_snapshot_unavailable_without_market_provider(tmp_path):
+    app = create_app(
+        calibration_dir=tmp_path,
+        live_snapshot_path=tmp_path / "live.json",
+    )
     result = endpoint(app, "/api/live")(entry_timeframe="5M", bars=500)
 
-    assert result["status"] == "not_configured"
+    assert result["status"] == "worker_snapshot_unavailable"
     assert result["execution_enabled"] is False
+    assert result["source"] == "worker_snapshot"
+
+
+def test_live_reads_worker_snapshot(tmp_path):
+    snapshot = tmp_path / "live.json"
+    snapshot.write_text(
+        """{
+          "scanned_at": "2026-09-19T10:00:00+00:00",
+          "news_clear": true,
+          "news_reason": null,
+          "news_provider_connected": true,
+          "execution_enabled": false,
+          "timeframes": {
+            "5M": {
+              "status": "ok",
+              "entry_timeframe": "5M",
+              "confirmation_timeframe": "15M",
+              "latest_candle_at": "2026-09-19T09:55:00+00:00",
+              "candidate_count": 12,
+              "ready_primary_count": 2,
+              "latest_ready_plan": null,
+              "execution_enabled": false
+            }
+          }
+        }""",
+        encoding="utf-8",
+    )
+    app = create_app(
+        calibration_dir=tmp_path,
+        live_snapshot_path=snapshot,
+    )
+
+    result = endpoint(app, "/api/live")(entry_timeframe="5M", bars=500)
+
+    assert result["status"] == "ok"
+    assert result["source"] == "worker_snapshot"
+    assert result["ready_primary_count"] == 2
+    assert result["news_provider_connected"] is True
 
 
 def test_dashboard_root_contains_user_tabs(tmp_path):
