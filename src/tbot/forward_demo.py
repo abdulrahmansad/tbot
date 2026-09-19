@@ -227,12 +227,22 @@ class ForwardDemoService:
                 created.append(plan_id)
 
         self.seen.write(seen)
+
+        news_provider_name = None
+        calendar = self.calendar
+        if calendar is not None:
+            upstream = getattr(calendar, "upstream", None)
+            news_provider_name = getattr(upstream, "last_provider_name", None)
+            if news_provider_name is None:
+                news_provider_name = type(upstream or calendar).__name__
+
         self.snapshot.write(
             {
                 "scanned_at": moment.isoformat(),
                 "news_clear": news_clear,
                 "news_reason": news_reason,
                 "news_provider_connected": self.calendar is not None,
+                "news_provider_name": news_provider_name,
                 "execution_enabled": False,
                 "timeframes": timeframe_snapshots,
             }
