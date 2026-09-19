@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 from tbot.data.cached import TimeframeCachedMarketDataProvider
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
+from tbot.fallback_calendar import FallbackEconomicCalendarProvider
+from tbot.finance_calendar import FinanceCalendarProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
 from tbot.news_cache import CachedEconomicCalendarProvider
@@ -64,15 +66,20 @@ def main() -> None:
     provider = TimeframeCachedMarketDataProvider(raw_provider)
 
     calendar = None
+    providers = []
     if os.getenv("FMP_API_KEY"):
+        providers.append(FmpEconomicCalendarProvider())
+    providers.append(FinanceCalendarProvider())
+
+    if providers:
         calendar = CachedEconomicCalendarProvider(
-            FmpEconomicCalendarProvider(),
+            FallbackEconomicCalendarProvider(providers),
             ttl_minutes=10,
             padding_minutes=60,
         )
     elif not args.allow_no_news:
         parser.error(
-            "FMP_API_KEY is required for the forward-demo validation period. "
+            "No economic-calendar provider is available. "
             "Use --allow-no-news only for development/testing."
         )
 
