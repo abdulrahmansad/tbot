@@ -16,7 +16,7 @@ def test_health_is_read_only():
 
     assert result["status"] == "ok"
     assert result["execution_enabled"] is False
-    assert result["strategy_version"] == "flip-dip-v1-candidate"
+    assert result["strategy_version"] == "flip-dip-v1-authoritative"
 
 
 def test_performance_reads_calibration_rows(tmp_path):
