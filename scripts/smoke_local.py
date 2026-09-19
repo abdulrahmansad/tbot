@@ -12,7 +12,6 @@ ENDPOINTS = (
     ("/api/calibration/status", "calibration"),
     ("/api/live?entry_timeframe=5M&bars=500", "live_5m"),
     ("/api/live?entry_timeframe=15M&bars=500", "live_15m"),
-    ("/api/live?entry_timeframe=1H&bars=500", "live_1h"),
     ("/api/plans", "plans"),
     ("/api/performance", "performance"),
     ("/api/history?limit=10&primary_only=true", "history"),
@@ -61,8 +60,8 @@ def main() -> None:
         "calibration_ready": calibration.get("ready_for_forward_demo") is True,
     }
 
-    timeframe_minutes = {"5M": 5, "15M": 15, "1H": 60}
-    for tf, key in (("5M", "live_5m"), ("15M", "live_15m"), ("1H", "live_1h")):
+    timeframe_minutes = {"5M": 5, "15M": 15}
+    for tf, key in (("5M", "live_5m"), ("15M", "live_15m")):
         payload = payloads.get(key, {})
         checks[f"live_{tf.lower()}_ok"] = payload.get("status") == "ok"
         checks[f"live_{tf.lower()}_execution_disabled"] = (
@@ -111,11 +110,6 @@ def main() -> None:
                 "status": payloads.get("live_15m", {}).get("status"),
                 "fresh_primary_count": payloads.get("live_15m", {}).get("fresh_primary_count"),
                 "latest_ready_plan": payloads.get("live_15m", {}).get("latest_ready_plan"),
-            },
-            "1H": {
-                "status": payloads.get("live_1h", {}).get("status"),
-                "fresh_primary_count": payloads.get("live_1h", {}).get("fresh_primary_count"),
-                "latest_ready_plan": payloads.get("live_1h", {}).get("latest_ready_plan"),
             },
         },
         "failures": failures,
