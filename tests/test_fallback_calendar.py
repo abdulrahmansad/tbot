@@ -33,3 +33,13 @@ def test_fallback_calendar_uses_next_provider_after_failure():
     assert len(events) == 1
     assert provider.last_provider_name == "Working"
     assert provider.last_error is None
+
+
+def test_fallback_calendar_records_failures_before_success():
+    provider = FallbackEconomicCalendarProvider([Broken(), Working()])
+
+    provider.fetch_events(start=NOW, end=NOW)
+
+    assert provider.last_provider_name == "Working"
+    assert provider.last_failures
+    assert "payment required" in provider.last_failures[0]
