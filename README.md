@@ -2,25 +2,60 @@
 
 Phase 0 is a **trade-planning and demo-tracking engine** for the owner's XAUUSD Flip & Dip strategy.
 
-It does **not** place trades.
+**It does not place trades.**
 
-## Phase 0 goals
+## What exists now
 
-- XAUUSD only
-- 5M, 15M, 1H, 4H
-- deterministic strategy state machine
-- higher-timeframe CHoCH/BOS confirmation mapping
-- maximum 3 executions per zone
+- XAUUSD-only domain model
+- 5M, 15M, 1H, 4H candle support
+- 5M→15M, 15M→1H, 1H→4H confirmation mapping
+- Flip & Dip state machine
+- max 3 executions per zone
 - candle-close invalidation
-- minimum 5R planned reward
-- configurable 5% risk model
-- Istanbul trading window 23:00 → 20:00
-- high-impact news gate
-- demo/forward-test logging
-- no liquidity concepts or unrelated indicators
+- minimum 5R gate
+- configurable 5% planning risk
+- Istanbul 23:00→20:00 trading window
+- high-impact USD news blackout engine
+- demo/forward-test event tracking
+- JSONL persistence and summary reporting
+- Twelve Data XAU/USD adapter
+- CI tests
 
-## Important
+## Strategy boundary
 
-Flip-zone detection, rejection quality, and CHoCH/BOS definitions remain explicit strategy interfaces until they are calibrated from owner-approved chart examples. The engine must never silently invent those rules.
+The strategy deliberately excludes liquidity sweeps, equal highs/lows, previous day/session highs/lows, liquidity pools, RSI, MACD, moving averages, Fibonacci, volume indicators, and unrelated SMC rules.
 
-See `docs/STRATEGY_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/STATUS.md`.
+Flip Zone recognition, rejection quality, and CHoCH/BOS interpretation are **not guessed**. They remain unvalidated detector interfaces until owner-approved chart examples are supplied.
+
+## Install
+
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+pip install -e ".[dev]"
+pytest -q
+```
+
+## Market data
+
+Copy `.env.example` to `.env` and add a Twelve Data API key when live/historical API testing begins.
+
+The data adapter converts provider symbol `XAU/USD` to internal `XAUUSD` and normalizes timestamps to UTC.
+
+## Demo mode
+
+`scripts/demo_example.py` demonstrates a synthetic plan. It does not connect to a broker.
+
+Manual calibration scenarios can be stored as JSON using `examples/manual_scenario.json`.
+
+## Documentation
+
+- `docs/STRATEGY_SPEC.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DATA_PROVIDER.md`
+- `docs/DEMO_PROTOCOL.md`
+- `docs/STATUS.md`
