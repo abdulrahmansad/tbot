@@ -4,10 +4,16 @@ import argparse
 import json
 import os
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
 from tbot.calibration_status import evaluate_calibration_readiness
+from tbot.data.twelve_data import TwelveDataXauUsdProvider
+from tbot.fallback_calendar import FallbackEconomicCalendarProvider
+from tbot.finance_calendar import FinanceCalendarProvider
+from tbot.fmp_calendar import FmpEconomicCalendarProvider
+from tbot.xoomar_calendar import XoomarEconomicCalendarProvider
 
 
 def main() -> None:
@@ -26,23 +32,78 @@ def main() -> None:
         default="data/runtime/calibration/summary.json",
         help="Calibration summary path.",
     )
+    parser.add_argument(
+        "--skip-network",
+        action="store_true",
+        help="Skip live provider smoke tests.",
+    )
     args = parser.parse_args()
 
     checks: dict[str, dict[str, object]] = {}
 
-    twelve_ok = bool(os.getenv("TWELVE_DATA_API_KEY"))
+    twelve_configured = bool(os.getenv("TWELVE_DATA_API_KEY"))
+    twelve_ok = twelve_configured
+    twelve_reason = None if twelve_configured else "TWELVE_DATA_API_KEY missing"
+    twelve_smoke_candles = 0
+    if twelve_configured and not args.skip_network:
+        try:
+            candles = TwelveDataXauUsdProvider().fetch_candles(
+                timeframe="5M",
+                outputsize=5,
+            )
+            twelve_smoke_candles = len(candles)
+            twelve_ok = bool(candles)
+            if not twelve_ok:
+                twelve_reason = "Twelve Data returned no candles"
+        except Exception as exc:
+            twelve_ok = False
+            twelve_reason = f"{type(exc).__name__}: {exc}"
     checks["twelve_data"] = {
         "ok": twelve_ok,
-        "reason": None if twelve_ok else "TWELVE_DATA_API_KEY missing",
+        "configured": twelve_configured,
+        "smoke_tested": not args.skip_network and twelve_configured,
+        "smoke_candles": twelve_smoke_candles,
+        "reason": twelve_reason,
     }
 
     fmp_configured = bool(os.getenv("FMP_API_KEY"))
+    calendar_providers = []
+    if fmp_configured:
+        calendar_providers.append(FmpEconomicCalendarProvider())
+    calendar_providers.extend(
+        [
+            FinanceCalendarProvider(),
+            XoomarEconomicCalendarProvider(),
+        ]
+    )
+    calendar_chain = FallbackEconomicCalendarProvider(calendar_providers)
+    news_ok = True
+    news_reason = None
+    active_news_provider = None
+    news_failures = []
+    event_count = None
+    if not args.skip_network:
+        try:
+            now = datetime.now(timezone.utc)
+            events = calendar_chain.fetch_events(
+                start=now - timedelta(hours=3),
+                end=now + timedelta(hours=24),
+            )
+            event_count = len(events)
+            active_news_provider = calendar_chain.last_provider_name
+            news_failures = list(calendar_chain.last_failures)
+        except Exception as exc:
+            news_ok = False
+            news_reason = f"{type(exc).__name__}: {exc}"
+            news_failures = list(calendar_chain.last_failures)
     checks["news_calendar"] = {
-        "ok": True,
-        "primary_provider": "FMP" if fmp_configured else "FinanceCalendar",
-        "fallback_provider": "FinanceCalendar" if fmp_configured else None,
+        "ok": news_ok,
         "fmp_configured": fmp_configured,
-        "reason": None,
+        "smoke_tested": not args.skip_network,
+        "active_provider": active_news_provider,
+        "provider_failures": news_failures,
+        "events_in_smoke_window": event_count,
+        "reason": news_reason,
     }
 
     username = bool(os.getenv("TBOT_DASHBOARD_USERNAME"))
