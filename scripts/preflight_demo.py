@@ -67,15 +67,12 @@ def main() -> None:
     }
 
     fmp_configured = bool(os.getenv("FMP_API_KEY"))
-    calendar_providers = []
+    calendar_providers = [
+        XoomarEconomicCalendarProvider(),
+        FinanceCalendarProvider(),
+    ]
     if fmp_configured:
         calendar_providers.append(FmpEconomicCalendarProvider())
-    calendar_providers.extend(
-        [
-            FinanceCalendarProvider(),
-            XoomarEconomicCalendarProvider(),
-        ]
-    )
     calendar_chain = FallbackEconomicCalendarProvider(calendar_providers)
     news_ok = True
     news_reason = None
