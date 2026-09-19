@@ -35,6 +35,8 @@ validation. It is not owner-approved and no profitability claim is made.
 - Istanbul trading-window handling
 - high-impact USD news blackout
 - FMP economic-calendar adapter
+- free FinanceCalendar fallback adapter
+- automatic calendar provider fallback
 - cached economic-calendar provider
 - candle-close invalidation
 - minimum 5R gate
@@ -146,8 +148,8 @@ docs/DATA_LICENSING.md
 
 ### Remaining before owner approval
 
-1. Configure FMP_API_KEY for protected forward-demo news gating.
-2. Run the forward-demo worker continuously against fresh XAUUSD data.
+1. Run the forward-demo worker continuously against fresh XAUUSD data. FMP is optional; FinanceCalendar provides the built-in free fallback.
+2. Observe which calendar provider is active in the dashboard/health output.
 3. Observe and review the planned one-week forward-demo period.
 4. Review terminal outcomes, partial milestones, MFE/MAE and operational logs.
 5. Decide whether provisional TP percentages remain or need owner adjustment.
