@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 
+from .calibration_status import evaluate_calibration_readiness
 from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
 from .data.twelve_data import TwelveDataXauUsdProvider
@@ -97,6 +98,20 @@ def create_app(
             "strategy_state": version.state.value,
             "execution_enabled": False,
             "mode": "planning_and_demo_only",
+        }
+
+    @app.get("/api/calibration/status")
+    def calibration_status() -> dict[str, Any]:
+        readiness = evaluate_calibration_readiness(root / "summary.json")
+        return {
+            "ready_for_forward_demo": readiness.ready_for_forward_demo,
+            "reasons": list(readiness.reasons),
+            "bars_requested": readiness.bars_requested,
+            "primary_events": readiness.primary_events,
+            "ambiguous_primary_events": readiness.ambiguous_primary_events,
+            "risk_model": readiness.risk_model,
+            "schema_version": readiness.schema_version,
+            "does_not_claim_profitability": True,
         }
 
     @app.get("/api/performance")
@@ -307,8 +322,8 @@ def create_app(
             "news_gate": "not_connected",
             "execution_enabled": False,
             "warning": (
-                "Latest READY plan is a planning signal from the current "
-                "provisional detector, not an executed trade."
+                "Latest READY plan is a planning signal from the v1 candidate "
+                "detector, not an executed trade."
             ),
         }
 
