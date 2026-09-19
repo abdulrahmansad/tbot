@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from .models import Candle, Direction, FlipZone
 
@@ -19,9 +20,15 @@ def candle_retests_zone(zone: FlipZone, candle: Candle) -> bool:
     return candle.open > zone.upper_price or candle.close > zone.upper_price
 
 
-def first_retest_after(zone: FlipZone, candles: Sequence[Candle]) -> Candle | None:
+def first_retest_after(
+    zone: FlipZone,
+    candles: Sequence[Candle],
+    *,
+    after: datetime | None = None,
+) -> Candle | None:
+    threshold = after or zone.created_at
     for candle in candles:
-        if candle.timestamp <= zone.created_at:
+        if candle.timestamp <= threshold:
             continue
         if candle_retests_zone(zone, candle):
             return candle
