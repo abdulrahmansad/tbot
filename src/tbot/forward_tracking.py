@@ -90,6 +90,11 @@ class ForwardOutcomeTracker:
                 zone=zone,
                 candles=candles,
                 activated_at=activated_at,
+                sizing_reference_price=(
+                    float(plan["sizing_reference_price"])
+                    if plan.get("sizing_reference_price") is not None
+                    else None
+                ),
             )
             stored[plan_id] = {
                 "outcome_status": outcome.status.value,
@@ -99,6 +104,7 @@ class ForwardOutcomeTracker:
                     else None
                 ),
                 "entry_reference_price": outcome.entry_reference_price,
+                "sizing_reference_price": plan.get("sizing_reference_price"),
                 "risk_unit": outcome.risk_unit,
                 "target_2r": outcome.target_2r,
                 "target_3_5r": outcome.target_3_5r,
