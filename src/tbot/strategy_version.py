@@ -31,3 +31,17 @@ def provisional_v0(created_at: datetime) -> StrategyVersion:
         detector_version="provisional-v0",
         notes="Temporary rules pending historical calibration and owner review.",
     )
+
+
+def candidate_v1(created_at: datetime) -> StrategyVersion:
+    return StrategyVersion(
+        name="flip-dip-v1-candidate",
+        state=StrategyVersionState.REVIEW_REQUIRED,
+        created_at=created_at,
+        detector_version="strict-sequence-stabilized-risk-v1",
+        notes=(
+            "Historical calibration and 2,000-bar validation completed. "
+            "No timeframe/direction hard filters promoted from sample-specific behavior. "
+            "Requires forward-demo validation before owner approval."
+        ),
+    )
