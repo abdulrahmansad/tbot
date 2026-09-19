@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from tbot.flip_dip.models import Candle, Direction, EntryTimeframe, FlipZone
+from tbot.flip_dip.models import Candle, Direction
 from tbot.flip_dip.provisional import (
     ProvisionalDetectorConfig,
     ProvisionalFlipZoneDetector,
@@ -26,11 +26,10 @@ def test_structure_can_confirm_between_return_and_retest():
     )
     candles = [
         c("15M", 0, 100, 102, 99, 101),
-        c("15M", 15, 101, 104, 100, 103),
-        c("15M", 30, 103, 103.5, 98, 99),
-        c("15M", 45, 99, 100, 96, 97),
-        c("15M", 60, 97, 98, 94, 95),
-        c("15M", 75, 95, 96, 92, 93),
+        c("15M", 15, 101, 103, 97, 98),
+        c("15M", 30, 98, 100, 99, 99.5),
+        c("15M", 45, 99.5, 100, 95, 96),
+        c("15M", 60, 96, 97, 93, 94),
     ]
 
     result = detector.confirm_between(
