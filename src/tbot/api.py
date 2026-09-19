@@ -62,6 +62,8 @@ def _history_row(row: dict[str, str]) -> dict[str, Any]:
         "zone_upper": _number(row.get("zone_upper")),
         "rejection_score": _number(row.get("rejection_score")),
         "outcome_status": row.get("outcome_status") or None,
+        "terminal": row.get("outcome_terminal", "").lower() == "true",
+        "terminal_reason": row.get("outcome_terminal_reason") or None,
         "max_favorable_r": _number(row.get("max_favorable_r")),
         "max_adverse_r": _number(row.get("max_adverse_r")),
         "outcome_resolved_at": row.get("outcome_resolved_at") or None,
