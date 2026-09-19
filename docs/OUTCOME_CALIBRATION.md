@@ -38,12 +38,26 @@ Sizing reference:
 - BUY: the lowest price reached during the confirmed rejection window,
   never higher than the zone lower edge.
 
-risk_unit = abs(entry_reference - sizing_reference)
+A stabilization floor is then applied using the median full candle range of
+the most recent 20 entry-timeframe candles that existed before the retest:
 
-This avoids microscopic Flip Zones producing unrealistic normalized R values
-while keeping the model entirely price-action based.
+risk_distance = max(
+    structural_distance,
+    recent_20_candle_median_range,
+    zone_width,
+)
 
-Targets are reported at 2R, 3.5R and 5R from this structural risk unit.
+The final sizing reference is placed that risk distance away from the entry
+reference in the adverse direction.
+
+This recent-range value is a planning-risk safeguard only. It is NOT used as a
+setup detector, entry condition, trend signal, or invalidation rule.
+
+This prevents microscopic Flip Zones or rejection extremes from producing
+unrealistic normalized R values and unrealistic position sizes.
+
+Targets are reported at 2R, 3.5R and 5R from this stabilized structural risk
+unit.
 
 ## Strategy invalidation
 
