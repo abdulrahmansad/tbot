@@ -5,10 +5,14 @@ import json
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from tbot.calibration_status import evaluate_calibration_readiness
 
 
 def main() -> None:
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         description="Validate TBOT forward-demo prerequisites."
     )
