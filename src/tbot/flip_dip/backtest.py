@@ -30,10 +30,19 @@ class HistoricalSetup:
     outcome: HistoricalOutcome | None = None
 
     @property
+    def effective_execution_number(self) -> int:
+        if self.execution_number > 0:
+            return self.execution_number
+        if self.decision.plan is not None:
+            return self.decision.plan.execution_number
+        return 0
+
+    @property
     def setup_key(self) -> str:
-        if self.execution_number <= 0:
+        execution_number = self.effective_execution_number
+        if execution_number <= 0:
             return f"{self.zone.id}:pre"
-        return f"{self.zone.id}:e{self.execution_number}"
+        return f"{self.zone.id}:e{execution_number}"
 
 
 class ProvisionalBacktester:
