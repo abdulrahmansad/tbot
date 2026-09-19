@@ -12,7 +12,8 @@ class FakeMarketData:
     def fetch_candles(self, *, timeframe, outputsize=1000, start=None, end=None):
         rows = [
             (100, 101, 99, 100),
-            (100, 100.5, 95.5, 98),
+            (100, 100.5, 99, 99.5),
+            (99.5, 100.5, 95.5, 98),
             (98, 103.5, 97, 103),
         ]
         return [
