@@ -296,6 +296,7 @@ class ForwardDemoService:
                     plan_id=plan_id,
                     plan=plan,
                     created_at=setup.retest_at,
+                    session_id=session_state.get("session_id"),
                     session_name=session_state.get("name"),
                     session_start=session_state.get("start"),
                     session_end=session_state.get("end"),
