@@ -84,6 +84,22 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="stat"><b id="eventCount">—</b><span>Independent events</span></div>
       <div class="stat"><b id="secondaryCount">—</b><span>Secondary zones</span></div>
     </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="eyebrow">What if I started with…</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        <label class="kv" style="min-width:180px"><b>Starting balance ($)</b><input id="simBalance" type="number" min="1" step="1" value="100" style="width:100%;background:transparent;color:var(--text);border:0;outline:0;font-size:20px"></label>
+        <label class="kv" style="min-width:180px"><b>Risk per event (%)</b><input id="simRisk" type="number" min="0.1" max="100" step="0.1" value="5" style="width:100%;background:transparent;color:var(--text);border:0;outline:0;font-size:20px"></label>
+        <button id="runSim" style="align-self:stretch;background:var(--accent);border:0;border-radius:12px;padding:0 18px;font-weight:800;cursor:pointer">Calculate</button>
+      </div>
+      <div class="stats" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:16px">
+        <div class="stat"><b id="simEnd">—</b><span>Ending balance</span></div>
+        <div class="stat"><b id="simProfit">—</b><span>Net profit</span></div>
+        <div class="stat"><b id="simReturn">—</b><span>Return</span></div>
+        <div class="stat"><b id="simDD">—</b><span>Max drawdown</span></div>
+      </div>
+      <div id="simCurve" style="margin-top:14px"></div>
+      <div class="notice">Hypothetical compounding scenario on primary historical events only. Default payout assumptions: 5R=+5R, 3.5R=+3.5R, 2R=+2R, invalidation=-1R, ambiguous=0R. Candle-close invalidation does not guarantee a real trade would lose exactly 1R.</div>
+    </div>
     <div class="card"><div class="eyebrow">Historical calibration outcomes</div><div id="outcomes"></div><div class="notice">R values here use stabilized structural sizing distance. They are calibration metrics, not broker-realized P&L.</div></div>
   </section>
 
@@ -140,11 +156,25 @@ async function live(){
     <div class="notice">${p.invalidation_rule}. Minimum target ${p.minimum_rr}R.</div>`;
 }
 async function performance(){
- const d=await get("/api/performance");
+ const balance=Math.max(1,Number(q("#simBalance")?.value||100));
+ const risk=Math.max(.1,Math.min(100,Number(q("#simRisk")?.value||5)));
+ const d=await get("/api/performance?starting_balance="+encodeURIComponent(balance)+"&risk_percent="+encodeURIComponent(risk));
  q("#candidateCount").textContent=d.candidate_count??0;q("#readyCount").textContent=d.ready_zone_count??0;
  q("#eventCount").textContent=d.independent_event_count??0;q("#secondaryCount").textContent=d.secondary_zone_count??0;
  const o=d.outcomes_primary_events||{};
  q("#outcomes").innerHTML=Object.keys(o).length?'<div class="kvs">'+Object.entries(o).map(([k,v])=>`<div class="kv"><b>${k}</b><span>${v}</span></div>`).join("")+'</div>':'<div class="empty">Run the enhanced calibration to populate outcomes.</div>';
+ const s=d.account_simulation||{};
+ q("#simEnd").textContent=s.ending_balance==null?"—":"$"+Number(s.ending_balance).toFixed(2);
+ q("#simProfit").textContent=s.net_profit==null?"—":(Number(s.net_profit)>=0?"+":"")+"$"+Number(s.net_profit).toFixed(2);
+ q("#simReturn").textContent=s.return_percent==null?"—":Number(s.return_percent).toFixed(1)+"%";
+ q("#simDD").textContent=s.max_drawdown_percent==null?"—":Number(s.max_drawdown_percent).toFixed(1)+"%";
+ const pts=s.equity_curve||[];
+ if(!pts.length){q("#simCurve").innerHTML='<div class="empty">No simulated events.</div>';return}
+ const w=900,h=180,pad=18,vals=[Number(s.starting_balance),...pts.map(x=>Number(x.balance_after))];
+ const min=Math.min(...vals),max=Math.max(...vals),span=Math.max(max-min,1e-9);
+ const xy=vals.map((v,i)=>[pad+(w-2*pad)*(i/Math.max(vals.length-1,1)),h-pad-(h-2*pad)*((v-min)/span)]);
+ const points=xy.map(p=>p.join(",")).join(" ");
+ q("#simCurve").innerHTML=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block"><polyline fill="none" stroke="currentColor" stroke-width="3" points="${points}"/><text x="${pad}" y="16" fill="currentColor" font-size="12">High ${Number(s.highest_balance).toFixed(2)}</text><text x="${pad}" y="${h-2}" fill="currentColor" font-size="12">Low ${Number(s.lowest_balance).toFixed(2)}</text></svg>`;
 }
 function outcomeLabel(x){
  const status=x.outcome_status||"OPEN";
@@ -169,6 +199,7 @@ async function plans(){const d=await get("/api/plans");q("#plansBody").innerHTML
 async function history(){const d=await get("/api/history?limit=100&primary_only=true");q("#historyBody").innerHTML=table(d.items)}
 qa(".nav button").forEach(b=>b.onclick=()=>{qa(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");qa(".tab").forEach(x=>x.classList.add("hidden"));q("#"+b.dataset.tab).classList.remove("hidden");if(b.dataset.tab==="plans")plans();if(b.dataset.tab==="performance")performance();if(b.dataset.tab==="history")history()});
 qa(".tf button").forEach(b=>b.onclick=()=>{qa(".tf button").forEach(x=>x.classList.remove("active"));b.classList.add("active");tf=b.dataset.tf;live()});
+q("#runSim").onclick=performance;
 health();live();
 </script>
 </body>
