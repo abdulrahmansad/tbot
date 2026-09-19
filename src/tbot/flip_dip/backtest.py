@@ -23,7 +23,7 @@ class HistoricalSetup:
     zone: FlipZone
     rejection_score: float
     decision: PlanDecision
-    execution_number: int = 1
+    execution_number: int = 0
     rejection_observed_at: datetime | None = None
     retest_at: datetime | None = None
     structure: StructureConfirmation | None = None
@@ -31,6 +31,8 @@ class HistoricalSetup:
 
     @property
     def setup_key(self) -> str:
+        if self.execution_number <= 0:
+            return f"{self.zone.id}:pre"
         return f"{self.zone.id}:e{self.execution_number}"
 
 
@@ -98,6 +100,20 @@ class ProvisionalBacktester:
                 )
                 continue
 
+            if not healthy:
+                output.append(
+                    HistoricalSetup(
+                        zone=zone,
+                        rejection_score=rejection_score,
+                        decision=PlanDecision(
+                            plan=None,
+                            reasons=("rejection_not_healthy",),
+                        ),
+                        rejection_observed_at=rejection.observed_at,
+                    )
+                )
+                continue
+
             htf_end = (
                 htf_candles[-1].timestamp
                 if htf_candles
@@ -112,10 +128,7 @@ class ProvisionalBacktester:
             )
 
             if not structure.confirmed or structure.observed_at is None:
-                reasons = []
-                if not healthy:
-                    reasons.append("rejection_not_healthy")
-                reasons.append("htf_structure_not_confirmed")
+                reasons = ["htf_structure_not_confirmed"]
                 output.append(
                     HistoricalSetup(
                         zone=zone,
@@ -135,10 +148,7 @@ class ProvisionalBacktester:
                 require_rearm=self.strategy_config.require_rearm_between_retests,
             )
             if not retests:
-                reasons = []
-                if not healthy:
-                    reasons.append("rejection_not_healthy")
-                reasons.append("no_retest_found")
+                reasons = ["no_retest_found"]
                 output.append(
                     HistoricalSetup(
                         zone=zone,
