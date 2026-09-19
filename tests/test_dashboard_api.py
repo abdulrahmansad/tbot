@@ -16,7 +16,7 @@ def test_health_is_read_only():
 
     assert result["status"] == "ok"
     assert result["execution_enabled"] is False
-    assert result["strategy_version"] == "flip-dip-v0-provisional"
+    assert result["strategy_version"] == "flip-dip-v1-candidate"
 
 
 def test_performance_reads_calibration_rows(tmp_path):
@@ -85,3 +85,12 @@ def test_dashboard_root_contains_user_tabs(tmp_path):
     assert "Performance" in html
     assert "History" in html
     assert "execution disabled" in html.lower()
+
+
+def test_calibration_status_missing_summary_is_not_ready(tmp_path):
+    app = create_app(calibration_dir=tmp_path)
+    result = endpoint(app, "/api/calibration/status")()
+
+    assert result["ready_for_forward_demo"] is False
+    assert "calibration_summary_missing" in result["reasons"]
+    assert result["does_not_claim_profitability"] is True
