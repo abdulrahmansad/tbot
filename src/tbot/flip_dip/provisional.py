@@ -50,7 +50,7 @@ def _entry_tf(value: str) -> EntryTimeframe:
 
 
 def _timeframe_minutes(value: str) -> int:
-    return {"5M": 5, "15M": 15, "1H": 60}[value]
+    return {"5M": 5, "15M": 15, "1H": 60, "4H": 240}[value]
 
 
 def _stable_zone_id(
@@ -303,7 +303,9 @@ class ProvisionalRejectionEvaluator:
         score = departure_component * 0.50 + close_component * 0.30 + body_component * 0.20
         return RejectionEvaluation(
             score=max(0.0, min(score, 1.0)),
-            observed_at=sample[-1].timestamp,
+            observed_at=sample[-1].timestamp + timedelta(
+                minutes=_timeframe_minutes(zone.timeframe.value)
+            ),
             sample_size=len(sample),
         )
 
@@ -392,7 +394,9 @@ class ProvisionalStructureDetector:
                         timeframe=timeframe,
                         direction=direction,
                         kind="BOS",
-                        observed_at=candle.timestamp,
+                        observed_at=candle.timestamp + timedelta(
+                            minutes=_timeframe_minutes(timeframe)
+                        ),
                     )
             elif direction is Direction.SELL and lows:
                 if candle.close < history[lows[-1]].low:
