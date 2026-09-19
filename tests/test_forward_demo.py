@@ -162,3 +162,71 @@ def test_live_snapshot_hides_stale_ready_plan(tmp_path):
     assert tf["ready_primary_count"] == 1
     assert tf["fresh_primary_count"] == 0
     assert tf["latest_ready_plan"] is None
+
+
+class ThreeExecutionScanner:
+    strategy_config = FakeConfig()
+
+    def scan(self, candles_by_timeframe, *, entry_timeframe, planned_rr):
+        output = []
+        for execution_number, minute in ((1, 15), (2, 30), (3, 45)):
+            zone = FlipZone(
+                id="same-zone",
+                direction=Direction.BUY,
+                timeframe=EntryTimeframe(entry_timeframe),
+                lower_price=99,
+                upper_price=100,
+                created_at=START,
+            )
+            plan = TradePlan(
+                zone_id=zone.id,
+                symbol="XAUUSD",
+                direction=Direction.BUY,
+                entry_timeframe=EntryTimeframe(entry_timeframe),
+                confirmation_timeframe="15M",
+                entry_low=99,
+                entry_high=100,
+                invalidation_rule="5M candle CLOSE below the Flip & Dip zone",
+                minimum_rr=5,
+                risk_percent=5,
+                execution_number=execution_number,
+            )
+            output.append(
+                HistoricalSetup(
+                    zone=zone,
+                    rejection_score=0.9,
+                    decision=PlanDecision(plan=plan, reasons=()),
+                    execution_number=execution_number,
+                    retest_at=START + timedelta(minutes=minute),
+                )
+            )
+        return output
+
+
+def test_forward_demo_persists_three_execution_ids_once(tmp_path):
+    service = make_service(tmp_path)
+    service.scanner = ThreeExecutionScanner()
+
+    first = service.poll_once(
+        entry_timeframes=("5M",),
+        fresh_bars=10,
+        now=START + timedelta(minutes=45),
+    )
+    second = service.poll_once(
+        entry_timeframes=("5M",),
+        fresh_bars=10,
+        now=START + timedelta(minutes=45),
+    )
+
+    assert first.created_plan_ids == (
+        "demo-same-zone-e1",
+        "demo-same-zone-e2",
+        "demo-same-zone-e3",
+    )
+    assert second.created_plan_ids == ()
+    rows = service.store.read_raw()
+    assert [row["plan_id"] for row in rows] == [
+        "demo-same-zone-e1",
+        "demo-same-zone-e2",
+        "demo-same-zone-e3",
+    ]
