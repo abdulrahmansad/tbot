@@ -65,4 +65,6 @@ def test_forward_tracker_updates_plan_outcome(tmp_path):
     result = tracker.update()
 
     assert result["demo-z1"]["outcome_status"] == "TARGET_2R"
+    assert result["demo-z1"]["terminal"] is True
+    assert result["demo-z1"]["terminal_reason"] == "invalidated_after_2r"
     assert result["demo-z1"]["max_favorable_r"] >= 2.0
