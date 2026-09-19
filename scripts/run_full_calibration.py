@@ -96,7 +96,15 @@ def main():
         print(f"  primary_outcomes={summary['primary_outcomes']}")
 
     summary_path = out_dir / "summary.json"
-    summary_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
+    summary_payload = {
+        "schema_version": 2,
+        "risk_model": "structural_rejection_plus_median20_range_floor",
+        "risk_floor_multiple": 1.0,
+        "entry_reference": "near_side_zone_edge",
+        "strategy_invalidation": "entry_timeframe_candle_close_beyond_zone",
+        "timeframes": summaries,
+    }
+    summary_path.write_text(json.dumps(summary_payload, indent=2), encoding="utf-8")
 
     zip_path = Path("data/runtime/tbot-calibration.zip")
     with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as archive:
