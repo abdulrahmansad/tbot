@@ -54,6 +54,10 @@ class FlipDipPlanner:
             reasons.append("wrong_confirmation_timeframe")
         elif structure.direction != zone.direction:
             reasons.append("structure_direction_mismatch")
+        elif structure.kind not in {"CHOCH", "BOS"}:
+            reasons.append("structure_kind_not_choch_or_bos")
+        elif structure.observed_at is None or structure.observed_at > now:
+            reasons.append("structure_not_observed_before_retest")
 
         if planned_rr < self.config.minimum_rr:
             reasons.append("rr_below_minimum")
@@ -113,6 +117,7 @@ class FlipDipPlanner:
                 minimum_rr=self.config.minimum_rr,
                 risk_percent=self.config.risk_percent,
                 execution_number=zone.execution_count + 1,
+                strategy_contract_version=self.config.strategy_contract_version,
                 sizing_reference_price=sizing_reference_price,
                 entry_reference_price=entry_reference_price,
                 target_5r_price=target_5r_price,
