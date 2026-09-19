@@ -273,6 +273,7 @@ def test_active_demo_session_tags_created_plan(tmp_path):
 
     rows = service.store.read_raw()
     assert rows[0]["session_name"] == "Friend Week 1"
+    assert rows[0]["session_id"] is not None
     assert rows[0]["session_start"] is not None
     assert rows[0]["session_end"] is not None
 
