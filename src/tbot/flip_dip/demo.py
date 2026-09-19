@@ -33,6 +33,7 @@ class DemoPlanRecord:
     plan: TradePlan
     created_at: datetime
     events: list[DemoEvent]
+    session_id: str | None = None
     session_name: str | None = None
     session_start: str | None = None
     session_end: str | None = None
@@ -51,6 +52,7 @@ class DemoPlanRecord:
             "plan_id": self.plan_id,
             "created_at": self.created_at.isoformat(),
             "plan": asdict(self.plan),
+            "session_id": self.session_id,
             "session_name": self.session_name,
             "session_start": self.session_start,
             "session_end": self.session_end,
@@ -81,6 +83,7 @@ class InMemoryDemoTracker:
         plan_id: str,
         plan: TradePlan,
         created_at: datetime,
+        session_id: str | None = None,
         session_name: str | None = None,
         session_start: str | None = None,
         session_end: str | None = None,
@@ -98,6 +101,7 @@ class InMemoryDemoTracker:
             plan=plan,
             created_at=created_at,
             events=[event],
+            session_id=session_id,
             session_name=session_name,
             session_start=session_start,
             session_end=session_end,
