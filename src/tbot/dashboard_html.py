@@ -108,7 +108,9 @@ async function health(){
  }
  const provider=worker.news_provider_name||"";
  const attribution=q("#newsAttribution");
- if(provider==="FinanceCalendarProvider"){
+ if(provider==="XoomarEconomicCalendarProvider"){
+   attribution.innerHTML='Economic calendar: <a href="https://xoomar.com/markets" target="_blank" rel="noopener noreferrer" style="color:var(--blue)">xoomar.com/markets</a>';
+ }else if(provider==="FinanceCalendarProvider"){
    attribution.innerHTML='Economic calendar: <a href="https://www.financecalendar.com" target="_blank" rel="noopener noreferrer" style="color:var(--blue)">financecalendar.com</a>';
  }else if(provider){
    attribution.textContent='Economic calendar: '+provider;
