@@ -200,6 +200,7 @@ def create_app(
                         "zone_upper": plan.get("entry_high"),
                         "minimum_rr": plan.get("minimum_rr"),
                         "risk_percent": plan.get("risk_percent"),
+                        "sizing_reference_price": plan.get("sizing_reference_price"),
                         "execution_number": plan.get("execution_number"),
                         "invalidation_rule": plan.get("invalidation_rule"),
                         "outcome_status": results_payload.get(
@@ -290,6 +291,7 @@ def create_app(
                 ),
                 "minimum_rr": latest.decision.plan.minimum_rr,
                 "risk_percent": latest.decision.plan.risk_percent,
+                "sizing_reference_price": latest.decision.plan.sizing_reference_price,
                 "invalidation_rule": latest.decision.plan.invalidation_rule,
             }
 
