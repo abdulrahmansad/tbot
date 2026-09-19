@@ -43,7 +43,7 @@ def cluster_ready_setups(setups: Sequence[HistoricalSetup]) -> tuple[SetupCluste
             s.retest_at,
             s.zone.direction.value,
             s.zone.created_at,
-            s.execution_number,
+            s.effective_execution_number,
         )
     )
 
