@@ -45,9 +45,12 @@ The worker requires:
 
 TWELVE_DATA_API_KEY
 
-Required for the real forward-demo validation period:
+Optional primary economic-calendar provider:
 
 FMP_API_KEY
+
+If FMP is unavailable or plan-gated, TBOT automatically falls back to the
+free FinanceCalendar API for high-impact US/Fed event protection.
 
 The web service does not need either provider API key.
 
@@ -103,8 +106,9 @@ python scripts/run_forward_demo.py --interval 60
 
 Only the worker needs TWELVE_DATA_API_KEY.
 
-The worker should also receive FMP_API_KEY once the economic-calendar feed is
-enabled.
+The worker may receive FMP_API_KEY as the primary economic-calendar provider.
+If FMP fails (including plan-gated HTTP 402 responses), the worker automatically
+uses FinanceCalendar as its fallback.
 
 The web service reads:
 
@@ -169,8 +173,9 @@ actual timeframe bucket rather than once per scan:
 Total normal market-data refreshes are about 414/day before retries or unusual
 operations.
 
-The FMP economic calendar is cached for 10 minutes, so normal continuous use
-is about 144 calendar requests/day.
+Economic-calendar responses are cached for 10 minutes. FMP is tried first when
+configured; FinanceCalendar is used automatically if FMP is unavailable or
+plan-gated.
 
 These are engineering estimates, not provider guarantees. Provider limits and
 licenses must be checked before production/public launch.
@@ -183,3 +188,19 @@ The minimal /api/health endpoint remains unauthenticated for uptime checks.
 
 Do not use private-demo authentication as a substitute for an appropriate
 external-display market-data license.
+
+
+## Calendar fallback behavior
+
+News protection must not fail open just because the preferred provider is unavailable.
+The worker tries providers in this order:
+
+1. FMP, when FMP_API_KEY is configured.
+2. FinanceCalendar free API.
+
+Only high-impact US/Federal Reserve events from the fallback feed are converted
+into USD/XAUUSD blackout events. The live snapshot and health API expose the
+provider that actually supplied the current calendar data.
+
+FinanceCalendar requires visible attribution when its data is displayed; the
+dashboard shows a source link when that fallback is active.
