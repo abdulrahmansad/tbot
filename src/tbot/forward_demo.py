@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,6 +13,7 @@ from .flip_dip.config import FlipDipConfig
 from .flip_dip.clustering import cluster_ready_setups
 from .flip_dip.demo import InMemoryDemoTracker
 from .flip_dip.persistence import JsonlDemoStore
+from .flip_dip.time_rules import is_within_trading_window
 from .live_snapshot import LiveSnapshotStore
 from .news import NewsBlackoutEngine
 from .news_provider import EconomicCalendarProvider
@@ -97,6 +99,13 @@ class ForwardDemoService:
         news_clear = True
         news_reason = None
         events = []
+        config = self.scanner.strategy_config
+        trading_window_open = is_within_trading_window(
+            moment,
+            timezone=config.timezone,
+            start=config.trading_start,
+            end=config.trading_end,
+        )
         if self.calendar is not None:
             events = self.calendar.fetch_events(
                 start=moment - timedelta(hours=3),
@@ -105,6 +114,19 @@ class ForwardDemoService:
             gate = self.news_engine.evaluate(now=moment, events=events)
             news_clear = gate.clear
             news_reason = gate.reason
+
+        upcoming_events = sorted(
+            (
+                event
+                for event in events
+                if event.scheduled_at >= moment
+                and event.impact.value == "HIGH"
+                and event.currency.upper() == "USD"
+                and event.xauusd_relevant
+            ),
+            key=lambda event: event.scheduled_at,
+        )
+        next_event = upcoming_events[0] if upcoming_events else None
 
         seen = self.seen.read()
         created: list[str] = []
@@ -192,16 +214,38 @@ class ForwardDemoService:
                     ),
                     "minimum_rr": plan.minimum_rr,
                     "risk_percent": plan.risk_percent,
+                    "entry_reference_price": plan.entry_reference_price,
                     "sizing_reference_price": plan.sizing_reference_price,
+                    "target_5r_price": plan.target_5r_price,
+                    "partial_tp_configured": plan.partial_tp_configured,
+                    "plan_notes": list(plan.notes),
                     "invalidation_rule": plan.invalidation_rule,
                 }
+
+            skip_reasons = Counter(
+                reason
+                for setup in setups
+                if setup.decision.plan is None
+                for reason in setup.decision.reasons
+            )
+            ready_execution_counts = Counter(
+                setup.effective_execution_number
+                for setup in setups
+                if setup.decision.plan is not None
+            )
 
             timeframe_snapshots[entry_tf] = {
                 "status": "ok",
                 "entry_timeframe": entry_tf,
                 "confirmation_timeframe": confirmation,
                 "latest_candle_at": entry[-1].timestamp.isoformat(),
+                "latest_close": entry[-1].close,
                 "candidate_count": len(setups),
+                "skip_reason_counts": dict(skip_reasons),
+                "ready_execution_counts": {
+                    str(key): value
+                    for key, value in sorted(ready_execution_counts.items())
+                },
                 "ready_primary_count": len(clusters),
                 "fresh_primary_count": sum(
                     1
@@ -268,8 +312,25 @@ class ForwardDemoService:
         self.snapshot.write(
             {
                 "scanned_at": moment.isoformat(),
+                "strategy_contract_version": config.strategy_contract_version,
+                "active_entry_timeframes": list(entry_timeframes),
+                "primary_entry_timeframes": list(config.primary_entry_timeframes),
+                "secondary_entry_timeframes": ["1H"],
+                "trading_window_open": trading_window_open,
+                "trading_window_timezone": config.timezone,
+                "trading_window_start": config.trading_start.strftime("%H:%M"),
+                "trading_window_end": config.trading_end.strftime("%H:%M"),
                 "news_clear": news_clear,
                 "news_reason": news_reason,
+                "next_high_impact_event": (
+                    {
+                        "title": next_event.title,
+                        "scheduled_at": next_event.scheduled_at.isoformat(),
+                        "currency": next_event.currency,
+                    }
+                    if next_event is not None
+                    else None
+                ),
                 "news_provider_connected": self.calendar is not None,
                 "news_provider_name": news_provider_name,
                 "news_provider_failures": news_provider_failures,
