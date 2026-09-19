@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Callable
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from .news import EconomicEvent, Impact
 
@@ -14,7 +14,19 @@ class FinanceCalendarError(RuntimeError):
 
 
 def _default_get(url: str) -> bytes:
-    with urlopen(url, timeout=20) as response:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/153.0 Safari/537.36"
+            ),
+            "Accept": "application/json,text/plain,*/*",
+            "Referer": "https://www.financecalendar.com/",
+        },
+    )
+    with urlopen(request, timeout=20) as response:
         return response.read()
 
 
