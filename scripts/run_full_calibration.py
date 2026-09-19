@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 from collections import Counter
 from pathlib import Path
@@ -68,6 +69,26 @@ def run_one(provider, scanner, entry_tf, confirmation_tf, bars, out_dir):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Run full XAUUSD Flip & Dip calibration."
+    )
+    parser.add_argument(
+        "--bars",
+        type=int,
+        default=1000,
+        help="Candles fetched per entry/confirmation timeframe (default 1000).",
+    )
+    parser.add_argument(
+        "--label",
+        default="latest",
+        help="Optional label recorded in summary metadata.",
+    )
+    args = parser.parse_args()
+    if args.bars < 500:
+        parser.error("--bars must be at least 500")
+    if args.bars > 5000:
+        parser.error("--bars cannot exceed 5000")
+
     out_dir = Path("data/runtime/calibration")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -82,7 +103,7 @@ def main():
             scanner,
             entry_tf,
             confirmation_tf,
-            1000,
+            args.bars,
             out_dir,
         )
         summaries.append(summary)
@@ -100,6 +121,8 @@ def main():
         "schema_version": 2,
         "risk_model": "structural_rejection_plus_median20_range_floor",
         "risk_floor_multiple": 1.0,
+        "bars_requested": args.bars,
+        "sample_label": args.label,
         "entry_reference": "near_side_zone_edge",
         "strategy_invalidation": "entry_timeframe_candle_close_beyond_zone",
         "timeframes": summaries,
