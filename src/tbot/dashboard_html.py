@@ -27,6 +27,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{font-size:26px;display:block}.stat span{font-size:12px;color:var(--muted)}
 .table{width:100%;border-collapse:collapse;margin-top:8px}.table th,.table td{text-align:left;padding:12px 8px;border-bottom:1px solid var(--line);font-size:13px}.table th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
 .empty{color:var(--muted);padding:26px 0}.notice{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.5}
+.formrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.field{min-width:170px;flex:1}.field label{display:block;color:var(--muted);font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}.field input{width:100%;background:#0a0e14;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px}.action{background:var(--accent);color:#0b0e12;border:0;border-radius:10px;padding:11px 16px;font-weight:800;cursor:pointer}.action:disabled{opacity:.5;cursor:not-allowed}
 .hidden{display:none!important}
 @media(max-width:800px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.kvs{grid-template-columns:1fr}.price{font-size:34px}.top{align-items:flex-start;flex-direction:column}}
 </style>
@@ -40,6 +41,8 @@ DASHBOARD_HTML = r"""<!doctype html>
 
   <div class="nav">
     <button class="active" data-tab="live">Live</button>
+    <button data-tab="test">Test Strategy</button>
+    <button data-tab="demo">Demo</button>
     <button data-tab="plans">Plans</button>
     <button data-tab="performance">Performance</button>
     <button data-tab="history">History</button>
@@ -71,6 +74,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div class="kv"><b>Minimum target</b><span>5R</span></div>
           <div class="kv"><b>Risk plan</b><span>5%</span></div>
           <div class="kv"><b>Calibration</b><span id="calibrationReady">Checking…</span></div>
+          <div class="kv"><b>Market</b><span id="marketState">Checking…</span></div>
           <div class="kv"><b>Trading window</b><span id="tradingWindow">Checking…</span></div>
           <div class="kv"><b>News gate</b><span id="newsGate">Checking…</span></div>
           <div class="kv"><b>Active TFs</b><span id="activeTfs">—</span></div>
@@ -78,6 +82,59 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div id="nextNews" class="notice"></div>
         <div class="notice">A READY plan is a hypothetical planning signal. TBOT does not place broker orders.</div>
         <div id="newsAttribution" class="notice"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="test" class="tab hidden">
+    <div class="card">
+      <div class="eyebrow">Historical strategy test</div>
+      <div class="metric">What would this strategy have done?</div>
+      <div class="notice">Choose a past interval. Phase 0 interactive tests are limited to 14 days so 5M history is not silently truncated.</div>
+      <div class="formrow">
+        <div class="field"><label>From</label><input id="testFrom" type="datetime-local"></div>
+        <div class="field"><label>To</label><input id="testTo" type="datetime-local"></div>
+        <div class="field"><label>Starting balance ($)</label><input id="testBalance" type="number" min="1" value="100"></div>
+        <div class="field"><label>Risk per trade (%)</label><input id="testRisk" type="number" min="0.1" max="5" step="0.1" value="5"></div>
+      </div>
+      <div class="formrow">
+        <label class="kv" style="display:flex;gap:8px;align-items:center"><input id="test1h" type="checkbox"> Include secondary 1H → 4H (experimental unless separately calibrated)</label>
+        <button class="action" id="runHistoricalTest">Run historical test</button>
+      </div>
+      <div id="testMessage" class="notice"></div>
+    </div>
+    <div id="testResults" class="hidden">
+      <div class="stats">
+        <div class="stat"><b id="testEndBalance">—</b><span>Ending balance scenario</span></div>
+        <div class="stat"><b id="testProfit">—</b><span>Net profit scenario</span></div>
+        <div class="stat"><b id="testReturn">—</b><span>Return scenario</span></div>
+        <div class="stat"><b id="testDrawdown">—</b><span>Max drawdown</span></div>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="eyebrow">Outcomes</div><div id="testOutcomes"></div></div>
+        <div class="card"><div class="eyebrow">Timeframe summary</div><div id="testTimeframes"></div></div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="eyebrow">Historical setups</div><div id="testSetups"></div><div id="testScenarioNote" class="notice"></div></div>
+    </div>
+  </section>
+
+  <section id="demo" class="tab hidden">
+    <div class="grid">
+      <div class="card">
+        <div class="eyebrow">Forward demo session</div>
+        <div class="metric">Run the strategy without trading</div>
+        <div class="formrow">
+          <div class="field"><label>Session name</label><input id="demoName" value="Flip & Dip Demo"></div>
+          <div class="field"><label>Start</label><input id="demoStart" type="datetime-local"></div>
+          <div class="field"><label>End</label><input id="demoEnd" type="datetime-local"></div>
+        </div>
+        <div class="formrow"><button class="action" id="saveDemoSession">Save demo session</button></div>
+        <div class="notice">The worker may stay running. New demo plans are recorded only while a configured session is ACTIVE.</div>
+      </div>
+      <div class="card">
+        <div class="eyebrow">Current session</div>
+        <div class="metric" id="demoStatus">Loading…</div>
+        <div id="demoDetails" class="notice"></div>
       </div>
     </div>
   </section>
@@ -154,6 +211,7 @@ const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
 let tf="5M";
 const fmt=n=>n==null?"—":Number(n).toFixed(2);
 async function get(url){try{const r=await fetch(url);return await r.json()}catch(e){return {status:"error"}}}
+async function post(url,body){try{const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)return {status:"error",detail:d.detail||("HTTP "+r.status)};return d}catch(e){return {status:"error",detail:String(e)}}}
 async function health(){
  const d=await get("/api/health");
  q("#strategyVersion").textContent=d.strategy_version||"—";
@@ -179,6 +237,7 @@ async function health(){
  }
  const cal=await get("/api/calibration/status");
  q("#calibrationReady").textContent=cal.ready_for_forward_demo?"Forward-demo ready":"Needs calibration";
+ q("#marketState").textContent=d.market_status==="OPEN"?"OPEN":d.market_status==="CLOSED_OR_STALE"?"CLOSED / DATA STALE":d.market_status||"—";
  q("#tradingWindow").textContent=d.trading_window_open===true?"OPEN":d.trading_window_open===false?"BLOCKED":"—";
  q("#newsGate").textContent=d.news_clear===true?"CLEAR":d.news_clear===false?"BLACKOUT":"—";
  q("#activeTfs").textContent=(d.active_entry_timeframes||[]).join(" · ")||"—";
@@ -186,6 +245,7 @@ async function health(){
  q("#nextNews").textContent=next?("Next high-impact USD event: "+next.title+" · "+next.scheduled_at):"No upcoming high-impact USD event in the current calendar window.";
  q("#reviewState").textContent=cal.ready_for_forward_demo&&worker.fresh?"DEMO ACTIVE":cal.ready_for_forward_demo?"READY / WORKER OFFLINE":"NOT READY";
  q("#reviewDetails").textContent="Schema "+(cal.schema_version??"—")+" · "+(cal.primary_events??0)+" primary historical events · "+(cal.ambiguous_primary_events??0)+" ambiguous · worker "+(worker.status||"unknown")+".";
+ const ds=d.demo_session||{};q("#demoStatus").textContent=ds.status||"UNBOUNDED";q("#demoDetails").textContent=ds.configured?((ds.name||"Demo")+" · "+ds.start+" → "+ds.end):"No bounded demo session configured. Worker behaves as an unbounded forward demo.";
 }
 async function live(){
   q("#livePlan").innerHTML='<div class="empty">Refreshing…</div>';
@@ -199,7 +259,14 @@ async function live(){
   const executions=d.ready_execution_counts||{};
   q("#liveDiagnostics").textContent="Scan candidates "+(d.candidate_count??0)+" · fresh primary "+(d.fresh_primary_count??0)+" · READY executions e1/e2/e3 "+(executions["1"]??0)+"/"+(executions["2"]??0)+"/"+(executions["3"]??0)+(Object.keys(skips).length?" · top skip "+Object.entries(skips).sort((a,b)=>b[1]-a[1])[0].join(": "):"");
   const p=d.latest_ready_plan;
-  if(!p){q("#livePlan").innerHTML='<div class="empty">No READY plan in the current scan window.</div>';return}
+  if(!p){
+    let reason="No valid Flip & Dip setup is READY in the current scan window.";
+    if(d.market_status==="CLOSED_OR_STALE") reason="Market appears closed or the latest market data is stale.";
+    else if(d.trading_window_open===false) reason="Market data is available, but your strategy entry window is currently blocked (20:00–23:00 Istanbul).";
+    else if(d.news_clear===false) reason="New entries are blocked by the high-impact news blackout.";
+    else if(d.demo_session&&d.demo_session.configured&&d.demo_session.status!=="ACTIVE") reason="The configured demo session is "+d.demo_session.status.toLowerCase()+", so new demo plans are not being recorded.";
+    q("#livePlan").innerHTML='<div class="empty">'+reason+'</div>';return
+  }
   q("#livePlan").innerHTML=`
     <div class="eyebrow">Latest ready plan</div>
     <div class="plan-title ${p.direction}">${p.direction}</div>
@@ -248,6 +315,43 @@ async function performance(){
  const points=xy.map(p=>p.join(",")).join(" ");
  q("#simCurve").innerHTML=`<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block"><polyline fill="none" stroke="currentColor" stroke-width="3" points="${points}"/><text x="${pad}" y="16" fill="currentColor" font-size="12">High ${Number(s.highest_balance).toFixed(2)}</text><text x="${pad}" y="${h-2}" fill="currentColor" font-size="12">Low ${Number(s.lowest_balance).toFixed(2)}</text></svg>`;
 }
+async function loadDemoSession(){
+ const d=await get("/api/demo/session");
+ q("#demoStatus").textContent=d.status||"—";
+ q("#demoDetails").textContent=d.configured?((d.name||"Demo")+" · "+d.start+" → "+d.end):"No bounded demo session configured.";
+}
+async function saveDemoSession(){
+ const name=q("#demoName").value.trim();
+ const start=q("#demoStart").value,end=q("#demoEnd").value;
+ if(!name||!start||!end){q("#demoDetails").textContent="Name, start and end are required.";return}
+ const d=await post("/api/demo/session",{name,start:new Date(start).toISOString(),end:new Date(end).toISOString()});
+ if(d.status==="error"){q("#demoDetails").textContent=d.detail||"Could not save session.";return}
+ await loadDemoSession();await health();
+}
+async function runHistoricalTest(){
+ const btn=q("#runHistoricalTest"),start=q("#testFrom").value,end=q("#testTo").value;
+ if(!start||!end){q("#testMessage").textContent="Choose both From and To.";return}
+ btn.disabled=true;q("#testMessage").textContent="Running the exact Flip & Dip rules on that historical interval…";
+ const d=await post("/api/historical-test",{
+   start:new Date(start).toISOString(),end:new Date(end).toISOString(),
+   starting_balance:Number(q("#testBalance").value||100),
+   risk_percent:Number(q("#testRisk").value||5),
+   include_1h:q("#test1h").checked
+ });
+ btn.disabled=false;
+ if(d.status==="error"){q("#testMessage").textContent=d.detail||"Historical test failed.";return}
+ q("#testMessage").textContent=d.independent_events+" independent events · "+d.historical_news_events_loaded+" high-impact calendar events loaded.";
+ q("#testResults").classList.remove("hidden");
+ const s=d.account_scenario||{};
+ q("#testEndBalance").textContent="$"+Number(s.ending_balance||0).toFixed(2);
+ q("#testProfit").textContent=(Number(s.net_profit||0)>=0?"+":"")+"$"+Number(s.net_profit||0).toFixed(2);
+ q("#testReturn").textContent=Number(s.return_percent||0).toFixed(1)+"%";
+ q("#testDrawdown").textContent=Number(s.max_drawdown_percent||0).toFixed(1)+"%";
+ q("#testOutcomes").innerHTML='<div class="kvs">'+Object.entries(d.outcomes||{}).map(([k,v])=>'<div class="kv"><b>'+k+'</b><span>'+v+'</span></div>').join("")+'</div>';
+ q("#testTimeframes").innerHTML='<div class="kvs">'+Object.entries(d.timeframes||{}).map(([k,v])=>'<div class="kv"><b>'+k+' → '+v.confirmation_timeframe+'</b><span>'+v.independent_events+' events · '+v.ready_executions+' READY executions</span></div>').join("")+'</div>';
+ q("#testSetups").innerHTML=table(d.setups||[]);
+ q("#testScenarioNote").textContent=s.note||"";
+}
 function outcomeLabel(x){
  const status=x.outcome_status||"OPEN";
  if(x.terminal){
@@ -269,9 +373,15 @@ function table(items){
 }
 async function plans(){const d=await get("/api/plans");q("#plansBody").innerHTML=table(d.items)}
 async function history(){const d=await get("/api/history?limit=100&primary_only=true");q("#historyBody").innerHTML=table(d.items)}
-qa(".nav button").forEach(b=>b.onclick=()=>{qa(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");qa(".tab").forEach(x=>x.classList.add("hidden"));q("#"+b.dataset.tab).classList.remove("hidden");if(b.dataset.tab==="plans")plans();if(b.dataset.tab==="performance")performance();if(b.dataset.tab==="history")history();if(b.dataset.tab==="review")health()});
+qa(".nav button").forEach(b=>b.onclick=()=>{qa(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");qa(".tab").forEach(x=>x.classList.add("hidden"));q("#"+b.dataset.tab).classList.remove("hidden");if(b.dataset.tab==="test"){};if(b.dataset.tab==="demo")loadDemoSession();if(b.dataset.tab==="plans")plans();if(b.dataset.tab==="performance")performance();if(b.dataset.tab==="history")history();if(b.dataset.tab==="review")health()});
 qa(".tf button").forEach(b=>b.onclick=()=>{qa(".tf button").forEach(x=>x.classList.remove("active"));b.classList.add("active");tf=b.dataset.tf;live()});
 q("#runSim").onclick=performance;
+q("#runHistoricalTest").onclick=runHistoricalTest;
+q("#saveDemoSession").onclick=saveDemoSession;
+const now=new Date(),day=24*60*60*1000;
+const localInput=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,16)};
+q("#testTo").value=localInput(now);q("#testFrom").value=localInput(new Date(now-day*7));
+q("#demoStart").value=localInput(now);q("#demoEnd").value=localInput(new Date(now+day*7));
 health();live();
 </script>
 </body>
