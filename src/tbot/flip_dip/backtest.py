@@ -56,16 +56,17 @@ class ProvisionalBacktester:
             rejection_score = self.rejection_evaluator.score(zone, entry_candles)
             healthy = rejection_score >= self.rejection_evaluator.config.minimum_rejection_score
 
-            structure = self.structure_detector.confirm(
-                [c for c in htf_candles if c.timestamp <= zone.created_at],
-                direction=zone.direction,
-                timeframe=required_htf,
-            )
-
             retest = first_retest_after(zone, entry_candles)
             if retest is None:
                 decision = PlanDecision(plan=None, reasons=("no_retest_found",))
             else:
+                structure = self.structure_detector.confirm_between(
+                    htf_candles,
+                    direction=zone.direction,
+                    timeframe=required_htf,
+                    start=zone.created_at,
+                    end=retest.timestamp,
+                )
                 zone.state = SetupState.WAITING_FOR_RETEST
                 decision = self.planner.build_plan(
                     zone=zone,
