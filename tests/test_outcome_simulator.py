@@ -58,3 +58,43 @@ def test_same_candle_target_and_invalidation_is_ambiguous():
 
     assert result.status is OutcomeStatus.AMBIGUOUS
     assert result.ambiguity_reason == "same_candle_new_target_and_close_invalidation"
+
+
+def test_structural_sizing_reference_replaces_raw_zone_width_for_sell():
+    result = simulate_historical_outcome(
+        zone=sell_zone(),
+        candles=[
+            candle(5, 100.0, 101.0, 99.0, 100.0),
+            candle(10, 99.0, 100.0, 91.5, 93.0),
+        ],
+        activated_at=START + timedelta(minutes=5),
+        sizing_reference_price=104.0,
+    )
+
+    assert result.entry_reference_price == 100.0
+    assert result.risk_unit == 4.0
+    assert result.target_2r == 92.0
+
+
+def test_structural_sizing_reference_for_buy_uses_rejection_low():
+    zone = FlipZone(
+        id="b1",
+        direction=Direction.BUY,
+        timeframe=EntryTimeframe.M5,
+        lower_price=100.0,
+        upper_price=102.0,
+        created_at=START,
+    )
+    result = simulate_historical_outcome(
+        zone=zone,
+        candles=[
+            candle(5, 101.0, 102.0, 100.5, 101.5),
+            candle(10, 102.0, 110.5, 101.0, 109.0),
+        ],
+        activated_at=START + timedelta(minutes=5),
+        sizing_reference_price=98.0,
+    )
+
+    assert result.entry_reference_price == 102.0
+    assert result.risk_unit == 4.0
+    assert result.target_2r == 110.0
