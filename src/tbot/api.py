@@ -150,6 +150,8 @@ def create_app(
             "ambiguous_primary_events": readiness.ambiguous_primary_events,
             "risk_model": readiness.risk_model,
             "schema_version": readiness.schema_version,
+            "strategy_contract_version": readiness.strategy_contract_version,
+            "execution_model": readiness.execution_model,
             "does_not_claim_profitability": True,
         }
 
@@ -187,6 +189,7 @@ def create_app(
             starting_balance=starting_balance,
             risk_percent=risk_percent,
         )
+        readiness = evaluate_calibration_readiness(root / "summary.json")
 
         forward_outcomes: Counter[str] = Counter()
         if forward_results.exists():
@@ -208,6 +211,13 @@ def create_app(
             "outcomes_primary_events": dict(primary_outcomes),
             "forward_demo_outcomes": dict(forward_outcomes),
             "account_simulation": {
+                "valid_for_current_strategy_contract": readiness.ready_for_forward_demo,
+                "calibration_reasons": list(readiness.reasons),
+                "strategy_profit_estimate_available": False,
+                "strategy_profit_estimate_reason": (
+                    "Owner partial TP percentages/levels are not configured; "
+                    "this is a milestone-payout scenario, not exact strategy P&L."
+                ),
                 "starting_balance": simulation.starting_balance,
                 "ending_balance": simulation.ending_balance,
                 "net_profit": simulation.net_profit,
