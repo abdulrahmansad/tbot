@@ -15,6 +15,7 @@ FIELDNAMES = [
     "cluster_rank",
     "cluster_primary",
     "created_at",
+    "rejection_observed_at",
     "retest_at",
     "structure_observed_at",
     "direction",
@@ -59,6 +60,11 @@ def setup_to_row(
         "cluster_rank": cluster_rank,
         "cluster_primary": cluster_primary,
         "created_at": zone.created_at.isoformat(),
+        "rejection_observed_at": (
+            setup.rejection_observed_at.isoformat()
+            if setup.rejection_observed_at
+            else ""
+        ),
         "retest_at": setup.retest_at.isoformat() if setup.retest_at else "",
         "structure_observed_at": (
             setup.structure.observed_at.isoformat()
