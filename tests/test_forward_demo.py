@@ -140,6 +140,7 @@ def test_forward_demo_blocks_setup_if_retest_was_inside_news_blackout(tmp_path):
     # the current +15m blackout, to prove the setup is checked at retest time.
     result = service.poll_once(
         entry_timeframes=("5M",),
+        fresh_bars=6,
         now=START + timedelta(minutes=70),
     )
 
