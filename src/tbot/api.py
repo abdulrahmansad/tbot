@@ -14,7 +14,7 @@ from .data.provider import MarketDataProvider
 from .data.twelve_data import TwelveDataXauUsdProvider
 from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.clustering import cluster_lookup
-from .strategy_version import provisional_v0
+from .strategy_version import candidate_v1
 
 
 DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
@@ -89,7 +89,7 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
-        version = provisional_v0(datetime.now(timezone.utc))
+        version = candidate_v1(datetime.now(timezone.utc))
         return {
             "status": "ok",
             "symbol": "XAUUSD",
@@ -132,7 +132,7 @@ def create_app(
             "outcomes_primary_events": dict(primary_outcomes),
             "forward_demo_outcomes": dict(forward_outcomes),
             "metric_note": (
-                "Historical R uses provisional zone-width normalization; "
+                "Historical R uses stabilized structural sizing distance; "
                 "it is not broker-realized P&L."
             ),
         }
