@@ -353,7 +353,11 @@ class ProvisionalStructureDetector:
             timeframe=timeframe,
             direction=direction,
             kind="BOS" if confirmed else None,
-            observed_at=latest.timestamp if confirmed else None,
+            observed_at=(
+                latest.timestamp + timedelta(minutes=_timeframe_minutes(timeframe))
+                if confirmed
+                else None
+            ),
         )
 
     def confirm_between(
@@ -405,7 +409,9 @@ class ProvisionalStructureDetector:
                         timeframe=timeframe,
                         direction=direction,
                         kind="BOS",
-                        observed_at=candle.timestamp,
+                        observed_at=candle.timestamp + timedelta(
+                            minutes=_timeframe_minutes(timeframe)
+                        ),
                     )
 
         return StructureConfirmation(
