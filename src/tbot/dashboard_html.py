@@ -135,6 +135,12 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="eyebrow">Current session</div>
         <div class="metric" id="demoStatus">Loading…</div>
         <div id="demoDetails" class="notice"></div>
+        <div class="kvs">
+          <div class="kv"><b>Plans</b><span id="demoPlanCount">0</span></div>
+          <div class="kv"><b>Open</b><span id="demoOpenCount">0</span></div>
+          <div class="kv"><b>Terminal</b><span id="demoTerminalCount">0</span></div>
+        </div>
+        <div id="demoOutcomes" class="notice"></div>
       </div>
     </div>
   </section>
@@ -319,6 +325,11 @@ async function loadDemoSession(){
  const d=await get("/api/demo/session");
  q("#demoStatus").textContent=d.status||"—";
  q("#demoDetails").textContent=d.configured?((d.name||"Demo")+" · "+d.start+" → "+d.end):"No bounded demo session configured.";
+ const s=await get("/api/demo/session/summary");
+ q("#demoPlanCount").textContent=s.plan_count??0;
+ q("#demoOpenCount").textContent=s.open_count??0;
+ q("#demoTerminalCount").textContent=s.terminal_count??0;
+ q("#demoOutcomes").textContent=Object.keys(s.outcomes||{}).length?Object.entries(s.outcomes).map(([k,v])=>k+": "+v).join(" · "):"No plans recorded for this session yet.";
 }
 async function saveDemoSession(){
  const name=q("#demoName").value.trim();
