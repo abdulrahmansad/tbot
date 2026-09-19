@@ -176,6 +176,12 @@ def main():
 
     out_dir = Path("data/runtime/calibration")
     out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in (
+        *out_dir.glob("review-*.csv"),
+        *out_dir.glob("review-*.json"),
+        *out_dir.glob("summary.json"),
+    ):
+        stale.unlink(missing_ok=True)
 
     provider = TwelveDataXauUsdProvider()
     strategy_config = FlipDipConfig(enable_1h_entries=args.include_1h)
