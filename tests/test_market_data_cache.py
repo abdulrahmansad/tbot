@@ -80,3 +80,22 @@ def test_ranged_request_bypasses_live_cache():
     provider.fetch_candles(timeframe="5M", outputsize=10, start=START)
 
     assert upstream.calls == 2
+
+
+def test_cache_waits_for_publication_grace_before_new_bucket():
+    upstream = Upstream()
+    now = [START + timedelta(minutes=5, seconds=5)]
+    provider = TimeframeCachedMarketDataProvider(
+        upstream,
+        now_fn=lambda: now[0],
+        refresh_grace_seconds=15,
+    )
+
+    provider.fetch_candles(timeframe="5M", outputsize=100)
+    now[0] = START + timedelta(minutes=5, seconds=10)
+    provider.fetch_candles(timeframe="5M", outputsize=100)
+    assert upstream.calls == 1
+
+    now[0] = START + timedelta(minutes=5, seconds=20)
+    provider.fetch_candles(timeframe="5M", outputsize=100)
+    assert upstream.calls == 2
