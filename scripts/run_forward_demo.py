@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
+from tbot.calibration_status import evaluate_calibration_readiness
 from tbot.data.cached import TimeframeCachedMarketDataProvider
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.fallback_calendar import FallbackEconomicCalendarProvider
@@ -61,6 +62,11 @@ def main() -> None:
         help="Seconds between cycles in continuous mode (minimum 60).",
     )
     parser.add_argument(
+        "--allow-unvalidated-calibration",
+        action="store_true",
+        help="Development only: allow worker startup without current schema-v3 calibration.",
+    )
+    parser.add_argument(
         "--include-1h",
         action="store_true",
         help="Opt in to 1H entry plans with required 4H confirmation.",
@@ -76,6 +82,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.interval < 60:
         parser.error("--interval must be at least 60 seconds")
+
+    readiness = evaluate_calibration_readiness(
+        "data/runtime/calibration/summary.json"
+    )
+    if not readiness.ready_for_forward_demo and not args.allow_unvalidated_calibration:
+        parser.error(
+            "Current calibration is not valid for the authoritative strategy contract: "
+            + ", ".join(readiness.reasons)
+            + ". Re-run schema-v3 calibration before the forward demo."
+        )
 
     raw_provider = TwelveDataXauUsdProvider()
     provider = TimeframeCachedMarketDataProvider(raw_provider)
