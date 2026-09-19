@@ -171,7 +171,7 @@ class ForwardDemoService:
                 latest_payload = {
                     "zone_id": latest_primary.zone.id,
                     "setup_key": latest_primary.setup_key,
-                    "execution_number": latest_primary.execution_number,
+                    "execution_number": latest_primary.effective_execution_number,
                     "direction": latest_primary.zone.direction.value,
                     "entry_timeframe": latest_primary.zone.timeframe.value,
                     "confirmation_timeframe": plan.confirmation_timeframe,
@@ -240,7 +240,7 @@ class ForwardDemoService:
                 if plan is None:
                     continue
 
-                plan_id = f"demo-{setup.zone.id}-e{setup.execution_number}"
+                plan_id = f"demo-{setup.zone.id}-e{setup.effective_execution_number}"
                 tracker = InMemoryDemoTracker()
                 record = tracker.create(
                     plan_id=plan_id,
