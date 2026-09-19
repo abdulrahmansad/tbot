@@ -134,10 +134,24 @@ async function performance(){
  const o=d.outcomes_primary_events||{};
  q("#outcomes").innerHTML=Object.keys(o).length?'<div class="kvs">'+Object.entries(o).map(([k,v])=>`<div class="kv"><b>${k}</b><span>${v}</span></div>`).join("")+'</div>':'<div class="empty">Run the enhanced calibration to populate outcomes.</div>';
 }
+function outcomeLabel(x){
+ const status=x.outcome_status||"OPEN";
+ if(x.terminal){
+   if(x.terminal_reason==="invalidated_after_2r") return "2R reached · later invalidated";
+   if(x.terminal_reason==="invalidated_after_3_5r") return "3.5R reached · later invalidated";
+   if(x.terminal_reason==="target_5r_reached") return "5R reached · terminal";
+   if(x.terminal_reason==="candle_close_invalidation") return "Invalidated";
+   if(x.terminal_reason==="ambiguous_target_vs_invalidation_order") return "Ambiguous";
+   return status+" · terminal";
+ }
+ if(status==="TARGET_2R") return "2R reached · active";
+ if(status==="TARGET_3_5R") return "3.5R reached · active";
+ return status;
+}
 function table(items){
  if(!items||!items.length)return '<div class="empty">No plans available.</div>';
  return '<table class="table"><thead><tr><th>Time</th><th>TF</th><th>Side</th><th>Zone</th><th>Outcome</th></tr></thead><tbody>'+
- items.map(x=>`<tr><td>${x.retest_at||x.created_at||"—"}</td><td>${x.entry_timeframe||"—"}</td><td class="${x.direction}">${x.direction||"—"}</td><td>${fmt(x.zone_lower)}–${fmt(x.zone_upper)}</td><td>${x.outcome_status||"OPEN"}</td></tr>`).join("")+'</tbody></table>';
+ items.map(x=>`<tr><td>${x.retest_at||x.created_at||"—"}</td><td>${x.entry_timeframe||"—"}</td><td class="${x.direction}">${x.direction||"—"}</td><td>${fmt(x.zone_lower)}–${fmt(x.zone_upper)}</td><td>${outcomeLabel(x)}</td></tr>`).join("")+'</tbody></table>';
 }
 async function plans(){const d=await get("/api/plans");q("#plansBody").innerHTML=table(d.items)}
 async function history(){const d=await get("/api/history?limit=100&primary_only=true");q("#historyBody").innerHTML=table(d.items)}
