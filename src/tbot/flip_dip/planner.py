@@ -78,6 +78,28 @@ class FlipDipPlanner:
             + " the Flip & Dip zone"
         )
 
+        entry_reference_price = (
+            zone.lower_price if zone.direction.value == "SELL" else zone.upper_price
+        )
+        target_5r_price = None
+        if sizing_reference_price is not None:
+            risk_distance = abs(entry_reference_price - sizing_reference_price)
+            if risk_distance <= 0:
+                reasons.append("invalid_sizing_reference")
+            elif zone.direction.value == "SELL":
+                target_5r_price = entry_reference_price - (
+                    risk_distance * self.config.minimum_rr
+                )
+            else:
+                target_5r_price = entry_reference_price + (
+                    risk_distance * self.config.minimum_rr
+                )
+        else:
+            reasons.append("sizing_reference_missing")
+
+        if reasons:
+            return PlanDecision(plan=None, reasons=tuple(reasons))
+
         return PlanDecision(
             plan=TradePlan(
                 zone_id=zone.id,
@@ -92,6 +114,14 @@ class FlipDipPlanner:
                 risk_percent=self.config.risk_percent,
                 execution_number=zone.execution_count + 1,
                 sizing_reference_price=sizing_reference_price,
+                entry_reference_price=entry_reference_price,
+                target_5r_price=target_5r_price,
+                partial_tp_configured=self.config.partial_tp_levels is not None,
+                notes=(
+                    ()
+                    if self.config.partial_tp_levels is not None
+                    else ("partial_tp_levels_require_owner_configuration",)
+                ),
             ),
             reasons=(),
         )
