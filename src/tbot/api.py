@@ -10,6 +10,7 @@ from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import HTMLResponse
 
 from .access import BasicAccessConfig, basic_authorized, private_access_from_env
+from .account_simulator import DEFAULT_OUTCOME_R, simulate_account
 from .calibration_status import evaluate_calibration_readiness
 from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
@@ -153,7 +154,10 @@ def create_app(
         }
 
     @app.get("/api/performance")
-    def performance() -> dict[str, Any]:
+    def performance(
+        starting_balance: float = Query(default=100.0, gt=0, le=1_000_000_000),
+        risk_percent: float = Query(default=5.0, gt=0, le=100),
+    ) -> dict[str, Any]:
         rows = _read_rows(root)
         ready = [row for row in rows if row.get("status") == "PLAN_READY"]
         primary = [
@@ -165,6 +169,21 @@ def create_app(
         primary_outcomes = Counter(
             row.get("outcome_status") or "UNRESOLVED" for row in primary
         )
+
+        simulation_rows = [
+            row
+            for row in primary
+            if row.get("outcome_status") in DEFAULT_OUTCOME_R
+        ]
+        simulation_rows.sort(
+            key=lambda row: row.get("retest_at") or row.get("created_at") or ""
+        )
+        simulation = simulate_account(
+            simulation_rows,
+            starting_balance=starting_balance,
+            risk_percent=risk_percent,
+        )
+
         forward_outcomes: Counter[str] = Counter()
         if forward_results.exists():
             import json
@@ -184,6 +203,45 @@ def create_app(
             "outcomes_all_ready_zones": dict(outcomes),
             "outcomes_primary_events": dict(primary_outcomes),
             "forward_demo_outcomes": dict(forward_outcomes),
+            "account_simulation": {
+                "starting_balance": simulation.starting_balance,
+                "ending_balance": simulation.ending_balance,
+                "net_profit": simulation.net_profit,
+                "return_percent": simulation.return_percent,
+                "risk_percent": simulation.risk_percent,
+                "event_count": simulation.event_count,
+                "winning_events": simulation.winning_events,
+                "losing_events": simulation.losing_events,
+                "flat_events": simulation.flat_events,
+                "max_drawdown_percent": simulation.max_drawdown_percent,
+                "lowest_balance": simulation.lowest_balance,
+                "highest_balance": simulation.highest_balance,
+                "equity_curve": [
+                    {
+                        "index": point.index,
+                        "event_time": point.event_time,
+                        "outcome_status": point.outcome_status,
+                        "r_multiple": point.r_multiple,
+                        "balance_before": point.balance_before,
+                        "pnl": point.pnl,
+                        "balance_after": point.balance_after,
+                    }
+                    for point in simulation.points
+                ],
+                "assumptions": {
+                    "compounding": True,
+                    "primary_events_only": True,
+                    "TARGET_5R": 5.0,
+                    "TARGET_3_5R": 3.5,
+                    "TARGET_2R": 2.0,
+                    "INVALIDATED": -1.0,
+                    "AMBIGUOUS": 0.0,
+                    "note": (
+                        "Hypothetical scenario only. Historical candle-close "
+                        "invalidation does not guarantee an exact -1R realized loss."
+                    ),
+                },
+            },
             "metric_note": (
                 "Historical R uses stabilized structural sizing distance; "
                 "it is not broker-realized P&L."
