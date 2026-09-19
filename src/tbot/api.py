@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import HTMLResponse
 
+from .access import BasicAccessConfig, basic_authorized, private_access_from_env
 from .calibration_status import evaluate_calibration_readiness
 from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
@@ -74,6 +75,7 @@ def create_app(
     forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
     forward_results_path: str | Path = DEFAULT_FORWARD_RESULTS_PATH,
     live_snapshot_path: str | Path = DEFAULT_LIVE_SNAPSHOT_PATH,
+    access_config: BasicAccessConfig | None = None,
 ) -> FastAPI:
     root = Path(calibration_dir)
     forward_path = Path(forward_plans_path)
@@ -87,6 +89,21 @@ def create_app(
             "No broker execution endpoints are provided."
         ),
     )
+
+    if access_config is not None:
+        @app.middleware("http")
+        async def private_demo_access(request: Request, call_next):
+            if request.url.path == "/api/health":
+                return await call_next(request)
+            if not basic_authorized(
+                request.headers.get("Authorization"),
+                access_config,
+            ):
+                return Response(
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+            return await call_next(request)
 
     @app.get("/", response_class=HTMLResponse)
     def dashboard() -> str:
@@ -373,4 +390,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(access_config=private_access_from_env())
