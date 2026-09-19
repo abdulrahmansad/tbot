@@ -66,14 +66,18 @@ def test_planner_requires_correct_htf_and_5r():
             timeframe="15M",
             direction=Direction.SELL,
             kind="BOS",
+            observed_at=now,
         ),
         rejection_is_healthy=True,
         news=NewsGate(clear=True),
         planned_rr=5.0,
+        sizing_reference_price=2304.0,
     )
     assert decision.plan is not None
     assert decision.plan.execution_number == 1
     assert decision.plan.confirmation_timeframe == "15M"
+    assert decision.plan.risk_percent == 5.0
+    assert decision.plan.target_5r_price == 2280.0
 
 
 def test_planner_rejects_below_5r():
@@ -88,10 +92,13 @@ def test_planner_rejects_below_5r():
             confirmed=True,
             timeframe="15M",
             direction=Direction.SELL,
+            kind="BOS",
+            observed_at=now,
         ),
         rejection_is_healthy=True,
         news=NewsGate(clear=True),
         planned_rr=4.99,
+        sizing_reference_price=2304.0,
     )
     assert decision.plan is None
     assert "rr_below_minimum" in decision.reasons
