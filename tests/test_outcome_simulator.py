@@ -44,6 +44,8 @@ def test_outcome_tracks_partial_target_before_close_invalidation():
     assert result.status is OutcomeStatus.TARGET_2R
     assert result.max_favorable_r >= 2.0
     assert result.bars_observed == 2
+    assert result.terminal is True
+    assert result.terminal_reason == "invalidated_after_2r"
 
 
 def test_same_candle_target_and_invalidation_is_ambiguous():
@@ -57,6 +59,8 @@ def test_same_candle_target_and_invalidation_is_ambiguous():
     )
 
     assert result.status is OutcomeStatus.AMBIGUOUS
+    assert result.terminal is True
+    assert result.terminal_reason == "ambiguous_target_vs_invalidation_order"
     assert result.ambiguity_reason == "same_candle_new_target_and_close_invalidation"
 
 
@@ -98,3 +102,33 @@ def test_structural_sizing_reference_for_buy_uses_rejection_low():
     assert result.entry_reference_price == 102.0
     assert result.risk_unit == 4.0
     assert result.target_2r == 110.0
+
+
+def test_partial_target_can_remain_open():
+    result = simulate_historical_outcome(
+        zone=sell_zone(),
+        candles=[
+            candle(5, 99.5, 100.5, 99.0, 99.5),
+            candle(10, 99.5, 100.5, 95.5, 98.0),
+        ],
+        activated_at=START + timedelta(minutes=5),
+    )
+
+    assert result.status is OutcomeStatus.TARGET_2R
+    assert result.terminal is False
+    assert result.terminal_reason is None
+
+
+def test_five_r_is_terminal():
+    result = simulate_historical_outcome(
+        zone=sell_zone(),
+        candles=[
+            candle(5, 99.5, 100.5, 99.0, 99.5),
+            candle(10, 99.0, 100.0, 89.5, 90.0),
+        ],
+        activated_at=START + timedelta(minutes=5),
+    )
+
+    assert result.status is OutcomeStatus.TARGET_5R
+    assert result.terminal is True
+    assert result.terminal_reason == "target_5r_reached"
