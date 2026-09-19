@@ -7,7 +7,7 @@ from typing import Any
 
 from .data.provider import MarketDataProvider
 from .flip_dip.models import Direction, EntryTimeframe, FlipZone
-from .flip_dip.outcome import OutcomeStatus, simulate_historical_outcome
+from .flip_dip.outcome import simulate_historical_outcome
 
 
 class ForwardResultStore:
