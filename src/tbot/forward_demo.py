@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .data.provider import MarketDataProvider
+from .demo_session import DemoSessionStore
 from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.config import FlipDipConfig
 from .flip_dip.clustering import cluster_ready_setups
@@ -68,6 +69,7 @@ class ForwardDemoService:
         plans_path: str | Path = "data/runtime/forward-plans.jsonl",
         seen_path: str | Path = "data/runtime/seen-zones.json",
         snapshot_path: str | Path = "data/runtime/live-snapshot.json",
+        session_path: str | Path = "data/runtime/demo-session.json",
         strategy_config: FlipDipConfig | None = None,
     ) -> None:
         self.market_data = market_data
@@ -76,6 +78,7 @@ class ForwardDemoService:
         self.store = JsonlDemoStore(plans_path)
         self.seen = SeenZoneStore(seen_path)
         self.snapshot = LiveSnapshotStore(snapshot_path)
+        self.session = DemoSessionStore(session_path)
         config = self.scanner.strategy_config
         self.news_engine = NewsBlackoutEngine(
             before_minutes=config.news_blackout_before_minutes,
@@ -91,6 +94,7 @@ class ForwardDemoService:
         now: datetime | None = None,
     ) -> ForwardDemoPollResult:
         moment = now or datetime.now(timezone.utc)
+        session_state = self.session.describe(now=moment)
         if entry_timeframes is None:
             entry_timeframes = self.scanner.strategy_config.enabled_entry_timeframes
         if fresh_bars < 1:
@@ -279,6 +283,8 @@ class ForwardDemoService:
 
                 if not setup_news_clear or setup.setup_key in seen:
                     continue
+                if session_state.get("configured") and session_state.get("status") != "ACTIVE":
+                    continue
 
                 plan = setup.decision.plan
                 if plan is None:
@@ -309,10 +315,28 @@ class ForwardDemoService:
             if news_provider_name is None:
                 news_provider_name = type(upstream or calendar).__name__
 
+        market_status = "UNKNOWN"
+        market_data_age_seconds = None
+        five_minute = timeframe_snapshots.get("5M") or {}
+        latest_candle_text = five_minute.get("latest_candle_at")
+        if latest_candle_text:
+            latest_candle = datetime.fromisoformat(latest_candle_text)
+            market_data_age_seconds = max(
+                0.0, (moment - latest_candle).total_seconds()
+            )
+            market_status = (
+                "OPEN"
+                if market_data_age_seconds <= 20 * 60
+                else "CLOSED_OR_STALE"
+            )
+
         self.snapshot.write(
             {
                 "scanned_at": moment.isoformat(),
                 "strategy_contract_version": config.strategy_contract_version,
+                "market_status": market_status,
+                "market_data_age_seconds": market_data_age_seconds,
+                "demo_session": session_state,
                 "active_entry_timeframes": list(entry_timeframes),
                 "primary_entry_timeframes": list(config.primary_entry_timeframes),
                 "secondary_entry_timeframes": ["1H"],
