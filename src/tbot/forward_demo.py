@@ -8,6 +8,7 @@ from typing import Iterable
 
 from .data.provider import MarketDataProvider
 from .flip_dip.backtest import ProvisionalBacktester
+from .flip_dip.config import FlipDipConfig
 from .flip_dip.clustering import cluster_ready_setups
 from .flip_dip.demo import InMemoryDemoTracker
 from .flip_dip.persistence import JsonlDemoStore
@@ -65,10 +66,11 @@ class ForwardDemoService:
         plans_path: str | Path = "data/runtime/forward-plans.jsonl",
         seen_path: str | Path = "data/runtime/seen-zones.json",
         snapshot_path: str | Path = "data/runtime/live-snapshot.json",
+        strategy_config: FlipDipConfig | None = None,
     ) -> None:
         self.market_data = market_data
         self.calendar = calendar
-        self.scanner = ProvisionalBacktester()
+        self.scanner = ProvisionalBacktester(strategy_config=strategy_config)
         self.store = JsonlDemoStore(plans_path)
         self.seen = SeenZoneStore(seen_path)
         self.snapshot = LiveSnapshotStore(snapshot_path)
