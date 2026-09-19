@@ -79,21 +79,25 @@ class HistoricalTestService:
 
         all_setups = []
         timeframe_results: dict[str, Any] = {}
+        needed_timeframes = set(config.enabled_entry_timeframes)
+        needed_timeframes.update(
+            config.confirmation_timeframe[entry_tf]
+            for entry_tf in config.enabled_entry_timeframes
+        )
+        candles_by_tf = {
+            timeframe: self.market_data.fetch_candles(
+                timeframe=timeframe,
+                outputsize=5000,
+                start=request.start,
+                end=request.end,
+            )
+            for timeframe in sorted(needed_timeframes)
+        }
 
         for entry_tf in config.enabled_entry_timeframes:
             confirmation_tf = config.confirmation_timeframe[entry_tf]
-            entry = self.market_data.fetch_candles(
-                timeframe=entry_tf,
-                outputsize=5000,
-                start=request.start,
-                end=request.end,
-            )
-            htf = self.market_data.fetch_candles(
-                timeframe=confirmation_tf,
-                outputsize=5000,
-                start=request.start,
-                end=request.end,
-            )
+            entry = candles_by_tf[entry_tf]
+            htf = candles_by_tf[confirmation_tf]
             setups = scanner.scan(
                 {entry_tf: entry, confirmation_tf: htf},
                 entry_timeframe=entry_tf,
