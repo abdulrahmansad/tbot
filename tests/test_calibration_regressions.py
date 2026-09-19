@@ -139,3 +139,30 @@ def test_flip_search_starts_only_after_pivot_right_confirmation():
         z.direction is Direction.SELL and z.created_at == candles[2].timestamp
         for z in zones
     )
+
+
+def test_rejection_evaluation_exposes_structural_sizing_reference():
+    evaluator = ProvisionalRejectionEvaluator(
+        ProvisionalDetectorConfig(rejection_lookahead_candles=2)
+    )
+    candles = [
+        c("5M", 0, 100, 103, 99, 100),
+        c("5M", 5, 100, 104, 97, 98),
+        c("5M", 10, 98, 99, 96, 97),
+    ]
+    from tbot.flip_dip.models import EntryTimeframe, FlipZone, SetupState
+
+    zone = FlipZone(
+        id="risk-ref",
+        direction=Direction.SELL,
+        timeframe=EntryTimeframe.M5,
+        lower_price=99.5,
+        upper_price=101.0,
+        created_at=candles[0].timestamp,
+        state=SetupState.RETURN_CONFIRMED,
+    )
+
+    result = evaluator.evaluate(zone, candles)
+
+    assert result.sizing_reference_price == 104
+    assert result.sizing_reference_price >= zone.upper_price
