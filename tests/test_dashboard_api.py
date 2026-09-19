@@ -208,3 +208,40 @@ def test_dashboard_exposes_secondary_1h_and_review_tab(tmp_path):
     assert 'data-tab="review"' in html
     assert "Trading window" in html
     assert "By execution #" in html
+
+
+def test_phase0_product_tabs_exist(tmp_path):
+    app = create_app(
+        calibration_dir=tmp_path,
+        demo_session_path=tmp_path / "demo-session.json",
+    )
+    html = endpoint(app, "/")()
+
+    assert "Test Strategy" in html
+    assert 'data-tab="demo"' in html
+    assert "Historical strategy test" in html
+    assert "Forward demo session" in html
+    assert "Market" in html
+
+
+def test_demo_session_can_be_configured_through_api(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from tbot.api import DemoSessionBody
+
+    app = create_app(
+        calibration_dir=tmp_path,
+        demo_session_path=tmp_path / "demo-session.json",
+    )
+    start = datetime(2026, 9, 20, tzinfo=timezone.utc)
+    result = endpoint(app, "/api/demo/session")(
+        DemoSessionBody(
+            name="Friend Strategy Demo",
+            start=start,
+            end=start + timedelta(days=7),
+        )
+    )
+
+    assert result["configured"] is True
+    assert result["status"] in {"SCHEDULED", "ACTIVE", "ENDED"}
+    assert result["session_id"]
+    assert result["name"] == "Friend Strategy Demo"
