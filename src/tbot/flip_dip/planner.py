@@ -34,6 +34,7 @@ class FlipDipPlanner:
         rejection_is_healthy: bool,
         news: NewsGate,
         planned_rr: float,
+        sizing_reference_price: float | None = None,
     ) -> PlanDecision:
         reasons: list[str] = []
 
@@ -90,6 +91,7 @@ class FlipDipPlanner:
                 minimum_rr=self.config.minimum_rr,
                 risk_percent=self.config.risk_percent,
                 execution_number=zone.execution_count + 1,
+                sizing_reference_price=sizing_reference_price,
             ),
             reasons=(),
         )
