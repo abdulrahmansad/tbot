@@ -73,13 +73,15 @@ class XoomarEconomicCalendarProvider:
                 continue
 
             title = (
-                item.get("name")
+                item.get("eventName")
+                or item.get("name")
                 or item.get("title")
                 or item.get("event")
                 or item.get("series")
             )
             stamp = (
-                item.get("scheduled_at")
+                item.get("scheduledAt")
+                or item.get("scheduled_at")
                 or item.get("time_utc")
                 or item.get("datetime")
                 or item.get("date")
