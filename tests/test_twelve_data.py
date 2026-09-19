@@ -35,7 +35,9 @@ def test_twelve_data_normalizes_xauusd():
     assert candles[0].timestamp.tzinfo is not None
 
 
-def test_provider_requires_key():
+def test_provider_requires_key_when_env_missing(monkeypatch):
+    monkeypatch.delenv("TWELVE_DATA_API_KEY", raising=False)
+    monkeypatch.setattr("tbot.data.twelve_data.load_dotenv", lambda: False)
     with pytest.raises(ValueError):
         TwelveDataXauUsdProvider(api_key="")
 
