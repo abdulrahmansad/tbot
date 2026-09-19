@@ -1,109 +1,166 @@
 # Project Status
 
-## 2026-09-19 — Phase 0C calibration + hosted demo foundation
+## 2026-09-19 — Flip & Dip V1 candidate / private forward-demo readiness
+
+### Current strategy version
+
+flip-dip-v1-candidate
+
+State:
+
+REVIEW_REQUIRED
+
+The candidate is historically calibrated enough to begin forward-demo
+validation. It is not owner-approved and no profitability claim is made.
 
 ### Implemented and tested
 
-- repository and GitHub Actions CI
 - immutable Flip & Dip strategy contract
-- XAUUSD-only configuration
-- 5M / 15M / 1H / 4H candle support
-- required higher-timeframe confirmation mapping
-- Istanbul 23:00 → 20:00 trading-window handling
-- maximum three executions per zone
-- minimum 5R plan gate
-- 5% configurable planning-risk model
+- XAUUSD-only scope
+- 5M / 15M / 1H entry timeframes
+- 15M / 1H / 4H confirmation mapping
+- strict event chronology:
+  - confirmed pivot
+  - trade through zone
+  - return through zone
+  - rejection window completion
+  - HTF BOS confirmation at candle close
+  - later retest
+  - plan ready
+  - future-candle outcome tracking only
+- deterministic zone IDs
+- overlap deduplication
+- event-level multi-zone clustering
+- primary-zone ranking
+- Istanbul trading-window handling
+- high-impact USD news blackout
+- FMP economic-calendar adapter
+- cached economic-calendar provider
 - candle-close invalidation
-- high-impact USD news-blackout engine
-- provider-neutral market-data layer
-- Twelve Data XAU/USD adapter
-- automatic .env loading for local development
-- deterministic Flip Zone IDs across repeated scans
-- provisional v0 Flip Zone detector
-- provisional v0 rejection scorer
-- provisional v0 pivot-based higher-timeframe structure detector
-- sequential HTF confirmation between return and retest
-- correct-side retest detector
-- overlapping-zone deduplication
-- event-level clustering for concurrent READY zones
-- historical setup scanner
-- conservative historical outcome simulator
-- 2R / 3.5R / 5R calibration targets
-- explicit AMBIGUOUS status when OHLC cannot determine intrabar order
-- max favorable/adverse R audit metrics
-- richer CSV/JSON calibration exports
-- one-command 5M / 15M / 1H full calibration runner
-- demo/forward-test event tracking
-- JSONL demo persistence
-- persistent forward-demo discovery with seen-zone deduplication
-- forward-demo outcome tracking
+- minimum 5R gate
+- maximum three planned executions per zone
+- configurable 5% planning risk
+- stabilized structural sizing model
+- recent 20-candle median-range risk floor
+- 2R / 3.5R / 5R calibration milestones
+- explicit intrabar AMBIGUOUS handling
+- separate milestone status vs terminal outcome state
+- MFE / MAE audit metrics
+- CSV/JSON calibration export
+- 1,000-bar and 2,000-bar calibration modes
+- repeatable calibration analysis report
+- calibration-quality readiness gate
+- forward-demo plan discovery
+- duplicate-plan prevention
+- persistent plan/result storage
+- forward outcome tracking
+- worker-produced live snapshot
+- worker heartbeat freshness detection
 - read-only FastAPI dashboard API
-- responsive Live / Plans / Performance / History dashboard shell
-- Docker deployment
-- two-service Compose runtime: web + monitoring worker
-- server-side secret architecture; no market-data key is exposed to browser code
+- responsive Live / Plans / Performance / History UI
+- v1 candidate metadata surfaced in dashboard
+- Docker runtime
+- web + worker Compose deployment
+- worker-only market-data/news secrets
+- timeframe-aware Twelve Data cache
+- candle-publication grace period
+- optional private-dashboard HTTP Basic protection
+- no broker execution code or execution endpoints
 
-### Real-data calibration completed
+### 2,000-bar validation
 
-The first real Twelve Data calibration bundle completed successfully before
-outcome tracking was added:
+Sample label:
 
-- 5M → 15M: 146 candidates / 19 READY
-- 15M → 1H: 130 candidates / 14 READY
-- 1H → 4H: 142 candidates / 26 READY
-- total: 418 candidates / 59 READY zones
+validation-2000
 
-That bundle exposed multi-zone clustering behavior and informed the new event
-clustering layer.
+Risk model:
 
-### Important status distinction
+structural_rejection_plus_median20_range_floor
 
-The software now has a functioning detector, real-data scan path, historical
-outcome engine, forward-demo worker, persistence, API, and dashboard shell.
+Primary independent events:
 
-It is still NOT correct to call provisional v0 a final or validated strategy.
+- 5M -> 15M: 67
+- 15M -> 1H: 73
+- 1H -> 4H: 75
+- total: 215
 
-The current Flip Zone, rejection, structure, event-ranking and calibration R
-rules remain provisional until the enhanced outcome calibration is rerun and
-reviewed.
+Primary outcomes:
 
-### Next required calibration run
+- TARGET_5R: 46
+- TARGET_3_5R: 13
+- TARGET_2R: 23
+- INVALIDATED: 131
+- AMBIGUOUS: 2
 
-Run the updated full calibration after pulling the latest code:
+These are historical diagnostic outcomes, not broker-realized P&L.
 
-python scripts/run_full_calibration.py
+### Calibration conclusions
 
-The new bundle will include:
+- the previous unrealistic 100R-300R normalization artifacts were removed,
+- rejection score does not justify a higher universal hard threshold,
+- no BUY/SELL or timeframe hard filter is promoted from the historical sample,
+- the earlier 1H BUY weakness was not stable across the expanded window,
+- the existing cluster ranking remains adequate for the v1 candidate,
+- the corrected detector is frozen for forward-demo testing instead of further
+  historical curve-fitting.
 
-- retest timestamps
-- HTF structure confirmation timestamps
-- cluster IDs/ranks/primary-zone labels
-- entry reference and provisional zone-width R unit
-- 2R / 3.5R / 5R targets
-- max favorable/adverse R
-- outcome status
-- ambiguity flags
+See:
 
-This enhanced bundle is required before detector tuning and v1 freeze.
+docs/V1_VALIDATION_2000.md
 
-### Remaining before one-week public demo
+### Live architecture
 
-1. Review enhanced historical outcomes by timeframe/direction.
-2. Tune detector and event-ranking rules from evidence.
-3. Decide/finalize partial TP percentages if the provisional model changes.
-4. Add a real economic-calendar provider adapter.
-5. Freeze a named calibrated strategy version.
-6. Run the forward-demo worker against fresh XAUUSD data.
-7. Review one-week forward results.
-8. Deploy web + worker with server-side secrets.
-9. Expose the Phase 0 dashboard to invited users.
+Production/private-demo flow:
+
+worker
+-> Twelve Data + economic calendar
+-> shared runtime snapshot/results
+-> web API
+-> dashboard
+
+The web service does not call Twelve Data in production.
+
+### API quota design
+
+The timeframe-aware market-data cache refreshes approximately:
+
+- 5M: once per 5-minute bucket
+- 15M: once per 15-minute bucket
+- 1H: once per hour
+- 4H: once per four hours
+
+Confirmation-timeframe data is shared between scans.
+
+The economic calendar is cached for 10 minutes.
+
+### Current deployment boundary
+
+The current build is intended for private/internal forward-demo validation.
+
+Before public/external display, confirm that the selected market-data
+license/provider permits the intended external display/commercial usage.
+
+See:
+
+docs/DATA_LICENSING.md
+
+### Remaining before owner approval
+
+1. Configure FMP_API_KEY for protected forward-demo news gating.
+2. Run the forward-demo worker continuously against fresh XAUUSD data.
+3. Observe and review the planned one-week forward-demo period.
+4. Review terminal outcomes, partial milestones, MFE/MAE and operational logs.
+5. Decide whether provisional TP percentages remain or need owner adjustment.
+6. Confirm market-data licensing before public/external display.
+7. Only then consider moving the strategy from REVIEW_REQUIRED to
+   OWNER_APPROVED.
 
 ### Explicitly excluded
 
 - broker order placement
 - automatic execution
 - assisted execution buttons
-- liquidity-sweep logic
+- liquidity-sweep strategy logic
 - RSI
 - MACD
 - moving averages
@@ -111,20 +168,3 @@ This enhanced bundle is required before detector tuning and v1 freeze.
 - volume strategy additions
 
 TBOT remains a planning and hypothetical tracking system only.
-
-
-## 2026-09-19 — Stabilized-risk calibration findings
-
-The first calibration using the stabilized structural risk model removed the
-previous unrealistic 100R-300R artifacts. Primary-event MFE is now within a
-credible range for this sample.
-
-Current evidence does NOT support raising the rejection-score threshold as a
-hard filter.
-
-A persistent calibration warning was observed for 1H BUY setups: zero 5R
-outcomes occurred in both chronological halves of the current sample. This is
-not yet a strategy rule. It must be tested on a second independent historical
-window before 1H BUY can be restricted or disabled.
-
-No timeframe/direction hard gate should be added from one sample alone.
