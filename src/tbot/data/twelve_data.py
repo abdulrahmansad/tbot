@@ -7,8 +7,12 @@ from typing import Callable
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+from dotenv import load_dotenv
+
 from tbot.flip_dip.models import Candle
 
+
+load_dotenv()
 
 _INTERVALS = {
     "5M": "5min",
@@ -44,7 +48,10 @@ class TwelveDataXauUsdProvider:
     ) -> None:
         self.api_key = api_key or os.getenv("TWELVE_DATA_API_KEY")
         if not self.api_key:
-            raise ValueError("TWELVE_DATA_API_KEY is required")
+            raise ValueError(
+                "TWELVE_DATA_API_KEY is required. Put it in the project .env file "
+                "as TWELVE_DATA_API_KEY=your_key."
+            )
         self.http_get = http_get
 
     def fetch_candles(
