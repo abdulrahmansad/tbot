@@ -9,6 +9,7 @@ RUNTIME_FILES = (
     Path("data/runtime/forward-results.json"),
     Path("data/runtime/seen-zones.json"),
     Path("data/runtime/live-snapshot.json"),
+    Path("data/runtime/demo-session.json"),
 )
 
 
