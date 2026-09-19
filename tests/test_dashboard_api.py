@@ -153,3 +153,58 @@ def test_performance_exposes_hypothetical_account_simulation(tmp_path):
     assert sim["ending_balance"] == 118.75
     assert sim["event_count"] == 2
     assert sim["assumptions"]["INVALIDATED"] == -1.0
+
+
+def test_health_exposes_phase0_operational_state(tmp_path):
+    snapshot = tmp_path / "live.json"
+    snapshot.write_text(
+        """{
+          "scanned_at": "2026-09-19T10:00:00+00:00",
+          "active_entry_timeframes": ["5M", "15M"],
+          "trading_window_open": true,
+          "trading_window_timezone": "Europe/Istanbul",
+          "trading_window_start": "23:00",
+          "trading_window_end": "20:00",
+          "news_clear": true,
+          "next_high_impact_event": null,
+          "news_provider_connected": true,
+          "timeframes": {}
+        }""",
+        encoding="utf-8",
+    )
+    app = create_app(
+        calibration_dir=tmp_path,
+        live_snapshot_path=snapshot,
+    )
+    result = endpoint(app, "/api/health")()
+
+    assert result["active_entry_timeframes"] == ["5M", "15M"]
+    assert result["trading_window_open"] is True
+    assert result["news_clear"] is True
+    assert result["optional_1h_entry"] is True
+
+
+def test_performance_exposes_review_breakdowns(tmp_path):
+    path = tmp_path / "review-5m.csv"
+    path.write_text(
+        "status,cluster_primary,outcome_status,entry_timeframe,direction,execution_number\n"
+        "PLAN_READY,true,TARGET_5R,5M,BUY,1\n"
+        "PLAN_READY,true,INVALIDATED,5M,SELL,2\n",
+        encoding="utf-8",
+    )
+    app = create_app(calibration_dir=tmp_path)
+    result = endpoint(app, "/api/performance")()
+
+    assert result["by_timeframe"]["5M"]["events"] == 2
+    assert result["by_direction"]["BUY"]["events"] == 1
+    assert result["by_execution_number"]["1"]["events"] == 1
+
+
+def test_dashboard_exposes_secondary_1h_and_review_tab(tmp_path):
+    app = create_app(calibration_dir=tmp_path)
+    html = endpoint(app, "/")()
+
+    assert "1H · secondary" in html
+    assert 'data-tab="review"' in html
+    assert "Trading window" in html
+    assert "By execution #" in html
