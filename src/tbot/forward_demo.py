@@ -296,6 +296,9 @@ class ForwardDemoService:
                     plan_id=plan_id,
                     plan=plan,
                     created_at=setup.retest_at,
+                    session_name=session_state.get("name"),
+                    session_start=session_state.get("start"),
+                    session_end=session_state.get("end"),
                 )
                 self.store.append_record(record)
                 seen.add(setup.setup_key)
