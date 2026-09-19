@@ -48,16 +48,28 @@ def simulate_historical_outcome(
     zone: FlipZone,
     candles: Sequence[Candle],
     activated_at,
+    sizing_reference_price: float | None = None,
 ) -> HistoricalOutcome:
     """Replay candles after plan activation without pretending to know intrabar order.
 
-    R is normalized by zone width for calibration only. Strategy invalidation
+    R is normalized by the structural sizing-reference distance when available.
+    Strategy invalidation
     remains the owner's candle-close-beyond-zone rule. If one candle both
     reaches a new target and closes through invalidation, the result is marked
     AMBIGUOUS rather than guessing which happened first.
     """
-    risk = max(zone.upper_price - zone.lower_price, 1e-9)
     entry = _entry_reference(zone)
+    fallback_reference = (
+        zone.upper_price
+        if zone.direction is Direction.SELL
+        else zone.lower_price
+    )
+    sizing_reference = (
+        sizing_reference_price
+        if sizing_reference_price is not None
+        else fallback_reference
+    )
+    risk = max(abs(entry - sizing_reference), 1e-9)
     t2 = _target(entry, risk, zone.direction, 2.0)
     t35 = _target(entry, risk, zone.direction, 3.5)
     t5 = _target(entry, risk, zone.direction, 5.0)
