@@ -86,9 +86,10 @@ class ForwardDemoService:
 
         news_clear = True
         news_reason = None
+        events = []
         if self.calendar is not None:
             events = self.calendar.fetch_events(
-                start=moment - timedelta(hours=2),
+                start=moment - timedelta(hours=3),
                 end=moment + timedelta(hours=2),
             )
             gate = self.news_engine.evaluate(now=moment, events=events)
@@ -198,7 +199,16 @@ class ForwardDemoService:
                     continue
 
                 fresh_primary_count += 1
-                if not news_clear or setup.zone.id in seen:
+
+                setup_news_clear = True
+                if self.calendar is not None:
+                    setup_gate = self.news_engine.evaluate(
+                        now=setup.retest_at,
+                        events=events,
+                    )
+                    setup_news_clear = setup_gate.clear
+
+                if not setup_news_clear or setup.zone.id in seen:
                     continue
 
                 plan = setup.decision.plan
