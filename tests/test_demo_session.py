@@ -26,3 +26,24 @@ def test_unconfigured_demo_session_is_unbounded(tmp_path):
     result = store.describe(now=START)
     assert result["configured"] is False
     assert result["status"] == "UNBOUNDED"
+
+
+def test_demo_session_id_is_stable_and_date_specific(tmp_path):
+    store = DemoSessionStore(tmp_path / "session.json")
+    first = DemoSession(
+        name="Week 1",
+        start=START,
+        end=START + timedelta(days=1),
+    )
+    second = DemoSession(
+        name="Week 1",
+        start=START + timedelta(days=7),
+        end=START + timedelta(days=8),
+    )
+
+    assert first.session_id == DemoSession(
+        name="Week 1",
+        start=START,
+        end=START + timedelta(days=1),
+    ).session_id
+    assert first.session_id != second.session_id
