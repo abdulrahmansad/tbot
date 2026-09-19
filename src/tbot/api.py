@@ -28,9 +28,22 @@ DEFAULT_LIVE_SNAPSHOT_PATH = Path("data/runtime/live-snapshot.json")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
 
 
+def _calibration_timeframes(calibration_dir: Path) -> tuple[str, ...]:
+    summary_path = calibration_dir / "summary.json"
+    if summary_path.exists():
+        try:
+            import json
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            if payload.get("schema_version") == 3 and payload.get("optional_1h_enabled"):
+                return ("5m", "15m", "1h")
+        except Exception:
+            pass
+    return ("5m", "15m")
+
+
 def _read_rows(calibration_dir: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    for timeframe in ("5m", "15m", "1h"):
+    for timeframe in _calibration_timeframes(calibration_dir):
         path = calibration_dir / f"review-{timeframe}.csv"
         if not path.exists():
             continue
@@ -124,6 +137,9 @@ def create_app(
             "strategy_state": version.state.value,
             "execution_enabled": False,
             "mode": "planning_and_demo_only",
+            "primary_entry_timeframes": ["5M", "15M"],
+            "optional_1h_entry": True,
+            "optional_1h_enabled_by_default": False,
             "worker": {
                 "status": worker.status,
                 "fresh": worker.fresh,
