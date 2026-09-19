@@ -36,10 +36,13 @@ def main() -> None:
         "reason": None if twelve_ok else "TWELVE_DATA_API_KEY missing",
     }
 
-    fmp_ok = bool(os.getenv("FMP_API_KEY"))
+    fmp_configured = bool(os.getenv("FMP_API_KEY"))
     checks["news_calendar"] = {
-        "ok": fmp_ok,
-        "reason": None if fmp_ok else "FMP_API_KEY missing",
+        "ok": True,
+        "primary_provider": "FMP" if fmp_configured else "FinanceCalendar",
+        "fallback_provider": "FinanceCalendar" if fmp_configured else None,
+        "fmp_configured": fmp_configured,
+        "reason": None,
     }
 
     username = bool(os.getenv("TBOT_DASHBOARD_USERNAME"))
