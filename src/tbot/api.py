@@ -12,15 +12,16 @@ from fastapi.responses import HTMLResponse
 from .calibration_status import evaluate_calibration_readiness
 from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
-from .data.twelve_data import TwelveDataXauUsdProvider
 from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.clustering import cluster_lookup
+from .live_snapshot import LiveSnapshotStore
 from .strategy_version import candidate_v1
 
 
 DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
 DEFAULT_FORWARD_PLANS_PATH = Path("data/runtime/forward-plans.jsonl")
 DEFAULT_FORWARD_RESULTS_PATH = Path("data/runtime/forward-results.json")
+DEFAULT_LIVE_SNAPSHOT_PATH = Path("data/runtime/live-snapshot.json")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
 
 
@@ -71,10 +72,12 @@ def create_app(
     calibration_dir: str | Path = DEFAULT_CALIBRATION_DIR,
     forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
     forward_results_path: str | Path = DEFAULT_FORWARD_RESULTS_PATH,
+    live_snapshot_path: str | Path = DEFAULT_LIVE_SNAPSHOT_PATH,
 ) -> FastAPI:
     root = Path(calibration_dir)
     forward_path = Path(forward_plans_path)
     forward_results = Path(forward_results_path)
+    live_snapshot = LiveSnapshotStore(live_snapshot_path)
     app = FastAPI(
         title="TBOT Phase 0 API",
         version="0.1.0",
@@ -254,17 +257,37 @@ def create_app(
                 "supported": list(SUPPORTED_ENTRY_TIMEFRAMES),
             }
 
+        snapshot = live_snapshot.read()
+        timeframe_payload = (snapshot.get("timeframes") or {}).get(timeframe)
+        if timeframe_payload is not None:
+            return {
+                **timeframe_payload,
+                "symbol": "XAUUSD",
+                "scanned_at": snapshot.get("scanned_at"),
+                "news_clear": snapshot.get("news_clear"),
+                "news_reason": snapshot.get("news_reason"),
+                "news_provider_connected": snapshot.get(
+                    "news_provider_connected", False
+                ),
+                "execution_enabled": False,
+                "source": "worker_snapshot",
+                "warning": (
+                    "Latest READY plan is a planning signal from the v1 candidate "
+                    "detector, not an executed trade."
+                ),
+            }
+
+        # Explicitly injected market_data is retained as a development/test
+        # fallback. Production web service does not hold the market-data key.
         provider = market_data
         if provider is None:
-            try:
-                provider = TwelveDataXauUsdProvider()
-            except ValueError:
-                return {
-                    "status": "not_configured",
-                    "symbol": "XAUUSD",
-                    "entry_timeframe": timeframe,
-                    "execution_enabled": False,
-                }
+            return {
+                "status": "worker_snapshot_unavailable",
+                "symbol": "XAUUSD",
+                "entry_timeframe": timeframe,
+                "execution_enabled": False,
+                "source": "worker_snapshot",
+            }
 
         scanner = ProvisionalBacktester()
         confirmation = scanner.strategy_config.confirmation_timeframe[timeframe]
@@ -276,23 +299,24 @@ def create_app(
             planned_rr=5.0,
         )
         clusters = cluster_lookup(setups)
-
-        ready = [
-            setup
-            for setup in setups
-            if setup.decision.plan is not None
+        by_zone = {setup.zone.id: setup for setup in setups}
+        primary = [
+            by_zone[cluster.primary_zone_id]
+            for cluster in clusters
+            if cluster.primary_zone_id in by_zone
         ]
-        ready.sort(key=lambda setup: setup.retest_at or setup.zone.created_at)
-        latest = ready[-1] if ready else None
+        primary = [setup for setup in primary if setup.retest_at is not None]
+        latest = (
+            max(primary, key=lambda setup: setup.retest_at)
+            if primary
+            else None
+        )
 
         latest_payload = None
-        if latest is not None:
-            cluster = clusters.get(latest.zone.id)
+        if latest is not None and latest.decision.plan is not None:
+            plan = latest.decision.plan
             latest_payload = {
                 "zone_id": latest.zone.id,
-                "cluster_id": cluster[0] if cluster else None,
-                "cluster_rank": cluster[1] if cluster else None,
-                "cluster_primary": cluster[2] if cluster else None,
                 "direction": latest.zone.direction.value,
                 "entry_timeframe": latest.zone.timeframe.value,
                 "confirmation_timeframe": confirmation,
@@ -304,10 +328,10 @@ def create_app(
                 "structure_observed_at": (
                     latest.structure.observed_at if latest.structure else None
                 ),
-                "minimum_rr": latest.decision.plan.minimum_rr,
-                "risk_percent": latest.decision.plan.risk_percent,
-                "sizing_reference_price": latest.decision.plan.sizing_reference_price,
-                "invalidation_rule": latest.decision.plan.invalidation_rule,
+                "minimum_rr": plan.minimum_rr,
+                "risk_percent": plan.risk_percent,
+                "sizing_reference_price": plan.sizing_reference_price,
+                "invalidation_rule": plan.invalidation_rule,
             }
 
         return {
@@ -317,10 +341,11 @@ def create_app(
             "confirmation_timeframe": confirmation,
             "latest_candle_at": entry[-1].timestamp if entry else None,
             "candidate_count": len(setups),
-            "ready_zone_count": len(ready),
+            "ready_primary_count": len(clusters),
             "latest_ready_plan": latest_payload,
-            "news_gate": "not_connected",
+            "news_provider_connected": False,
             "execution_enabled": False,
+            "source": "injected_provider_fallback",
             "warning": (
                 "Latest READY plan is a planning signal from the v1 candidate "
                 "detector, not an executed trade."
