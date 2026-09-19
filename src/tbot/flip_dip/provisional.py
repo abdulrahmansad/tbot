@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha1
 from datetime import timedelta
 from statistics import mean
 from typing import Sequence
-from uuid import uuid4
 
 from .models import Candle, Direction, EntryTimeframe, FlipZone, SetupState, StructureConfirmation
 
@@ -51,6 +51,27 @@ def _entry_tf(value: str) -> EntryTimeframe:
 
 def _timeframe_minutes(value: str) -> int:
     return {"5M": 5, "15M": 15, "1H": 60}[value]
+
+
+def _stable_zone_id(
+    *,
+    direction: Direction,
+    timeframe: EntryTimeframe,
+    lower: float,
+    upper: float,
+    created_at,
+) -> str:
+    raw = "|".join(
+        (
+            direction.value,
+            timeframe.value,
+            f"{lower:.8f}",
+            f"{upper:.8f}",
+            created_at.isoformat(),
+        )
+    )
+    digest = sha1(raw.encode("utf-8")).hexdigest()[:12]
+    return f"v0-{direction.value.lower()}-{digest}"
 
 
 def _pivot_highs(candles: Sequence[Candle], left: int, right: int) -> list[int]:
@@ -185,7 +206,13 @@ class ProvisionalFlipZoneDetector:
                 traded_above = True
             if traded_above and candle.close < lower:
                 return FlipZone(
-                    id=f"v0-sell-{uuid4().hex[:12]}",
+                    id=_stable_zone_id(
+                        direction=Direction.SELL,
+                        timeframe=timeframe,
+                        lower=lower,
+                        upper=upper,
+                        created_at=candle.timestamp,
+                    ),
                     direction=Direction.SELL,
                     timeframe=timeframe,
                     lower_price=lower,
@@ -211,7 +238,13 @@ class ProvisionalFlipZoneDetector:
                 traded_below = True
             if traded_below and candle.close > upper:
                 return FlipZone(
-                    id=f"v0-buy-{uuid4().hex[:12]}",
+                    id=_stable_zone_id(
+                        direction=Direction.BUY,
+                        timeframe=timeframe,
+                        lower=lower,
+                        upper=upper,
+                        created_at=candle.timestamp,
+                    ),
                     direction=Direction.BUY,
                     timeframe=timeframe,
                     lower_price=lower,
