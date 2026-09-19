@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Mapping, Sequence
 
 from .config import FlipDipConfig
-from .models import Candle, FlipZone, NewsGate, SetupState
+from .models import Candle, FlipZone, NewsGate, SetupState, StructureConfirmation
+from .outcome import HistoricalOutcome, simulate_historical_outcome
 from .planner import FlipDipPlanner, PlanDecision
 from .provisional import (
     ProvisionalFlipZoneDetector,
@@ -19,6 +21,9 @@ class HistoricalSetup:
     zone: FlipZone
     rejection_score: float
     decision: PlanDecision
+    retest_at: datetime | None = None
+    structure: StructureConfirmation | None = None
+    outcome: HistoricalOutcome | None = None
 
 
 class ProvisionalBacktester:
@@ -57,6 +62,9 @@ class ProvisionalBacktester:
             healthy = rejection_score >= self.rejection_evaluator.config.minimum_rejection_score
 
             retest = first_retest_after(zone, entry_candles)
+            structure: StructureConfirmation | None = None
+            outcome: HistoricalOutcome | None = None
+
             if retest is None:
                 decision = PlanDecision(plan=None, reasons=("no_retest_found",))
             else:
@@ -76,12 +84,21 @@ class ProvisionalBacktester:
                     news=NewsGate(clear=True),
                     planned_rr=planned_rr,
                 )
+                if decision.plan is not None:
+                    outcome = simulate_historical_outcome(
+                        zone=zone,
+                        candles=entry_candles,
+                        activated_at=retest.timestamp,
+                    )
 
             output.append(
                 HistoricalSetup(
                     zone=zone,
                     rejection_score=rejection_score,
                     decision=decision,
+                    retest_at=retest.timestamp if retest is not None else None,
+                    structure=structure,
+                    outcome=outcome,
                 )
             )
 
