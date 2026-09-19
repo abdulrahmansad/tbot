@@ -6,14 +6,20 @@ from datetime import datetime
 
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.flip_dip.backtest import ProvisionalBacktester
+from tbot.flip_dip.config import FlipDipConfig
 from tbot.flip_dip.calibration import export_calibration_csv, export_calibration_json
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Scan historical XAUUSD data with provisional Flip & Dip v0 rules."
+        description="Inspect authoritative Flip & Dip candidate rules on XAUUSD history."
     )
     parser.add_argument("--entry-tf", choices=["5M", "15M", "1H"], default="5M")
+    parser.add_argument(
+        "--include-1h",
+        action="store_true",
+        help="Required acknowledgement for optional 1H entry inspection.",
+    )
     parser.add_argument("--bars", type=int, default=1000)
     parser.add_argument("--rr", type=float, default=5.0)
     parser.add_argument("--start", help="UTC ISO datetime, e.g. 2026-08-01T00:00:00+00:00")
@@ -25,7 +31,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    confirmation = {"5M": "15M", "15M": "1H", "1H": "4H"}[args.entry_tf]
+    if args.entry_tf == "1H" and not args.include_1h:
+        raise SystemExit("1H entries are optional. Re-run with --include-1h.")
+    config = FlipDipConfig(enable_1h_entries=args.include_1h)
+    confirmation = config.confirmation_timeframe[args.entry_tf]
     start = datetime.fromisoformat(args.start) if args.start else None
     end = datetime.fromisoformat(args.end) if args.end else None
 
@@ -43,7 +52,7 @@ def main() -> None:
         end=end,
     )
 
-    scanner = ProvisionalBacktester()
+    scanner = ProvisionalBacktester(strategy_config=config)
     setups = scanner.scan(
         {
             args.entry_tf: entry,
@@ -53,7 +62,7 @@ def main() -> None:
         planned_rr=args.rr,
     )
 
-    print(f"XAUUSD provisional v0 scan: {args.entry_tf} -> {confirmation}")
+    print(f"XAUUSD authoritative candidate scan: {args.entry_tf} -> {confirmation}")
     print(f"Entry candles: {len(entry)} | HTF candles: {len(htf)}")
     print(f"Detected Flip & Dip candidates: {len(setups)}")
 
@@ -75,6 +84,7 @@ def main() -> None:
             f"{zone.direction.value} "
             f"zone={zone.lower_price:.2f}-{zone.upper_price:.2f} "
             f"rejection={setup.rejection_score:.2f} "
+            f"execution={setup.execution_number} "
             f"{label}"
         )
         if decision.reasons:
