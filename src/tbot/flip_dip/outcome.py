@@ -28,12 +28,13 @@ class HistoricalOutcome:
     max_favorable_r: float
     max_adverse_r: float
     bars_observed: int
+    terminal: bool = False
+    terminal_reason: str | None = None
     resolved_at: object | None = None
     ambiguity_reason: str | None = None
 
 
 def _entry_reference(zone: FlipZone) -> float:
-    # Calibration-only reference: the near-side edge first approached on retest.
     return zone.lower_price if zone.direction is Direction.SELL else zone.upper_price
 
 
@@ -50,13 +51,14 @@ def simulate_historical_outcome(
     activated_at,
     sizing_reference_price: float | None = None,
 ) -> HistoricalOutcome:
-    """Replay candles after plan activation without pretending to know intrabar order.
+    """Replay candles after activation without guessing intrabar order.
 
-    R is normalized by the structural sizing-reference distance when available.
-    Strategy invalidation
-    remains the owner's candle-close-beyond-zone rule. If one candle both
-    reaches a new target and closes through invalidation, the result is marked
-    AMBIGUOUS rather than guessing which happened first.
+    Status records the furthest target milestone reached. The terminal flag
+    separately records whether the plan has actually finished.
+
+    Strategy invalidation remains candle-close-beyond-zone. If one candle both
+    reaches a previously unachieved target and closes through invalidation,
+    the result is AMBIGUOUS rather than guessing intrabar order.
     """
     entry = _entry_reference(zone)
     fallback_reference = (
@@ -101,7 +103,9 @@ def simulate_historical_outcome(
         max_favorable_r = max(max_favorable_r, favorable_r)
         max_adverse_r = max(max_adverse_r, adverse_r)
 
-        target_this_candle = 5.0 if hit_5 else 3.5 if hit_35 else 2.0 if hit_2 else 0.0
+        target_this_candle = (
+            5.0 if hit_5 else 3.5 if hit_35 else 2.0 if hit_2 else 0.0
+        )
         invalidated = is_invalidated_by_close(zone, candle)
 
         if invalidated and target_this_candle > highest_target:
@@ -115,6 +119,8 @@ def simulate_historical_outcome(
                 max_favorable_r=max_favorable_r,
                 max_adverse_r=max_adverse_r,
                 bars_observed=index,
+                terminal=True,
+                terminal_reason="ambiguous_target_vs_invalidation_order",
                 resolved_at=candle.timestamp,
                 ambiguity_reason="same_candle_new_target_and_close_invalidation",
             )
@@ -132,16 +138,21 @@ def simulate_historical_outcome(
                 max_favorable_r=max_favorable_r,
                 max_adverse_r=max_adverse_r,
                 bars_observed=index,
+                terminal=True,
+                terminal_reason="target_5r_reached",
                 resolved_at=candle.timestamp,
             )
 
         if invalidated:
             if highest_target >= 3.5:
                 status = OutcomeStatus.TARGET_3_5R
+                reason = "invalidated_after_3_5r"
             elif highest_target >= 2.0:
                 status = OutcomeStatus.TARGET_2R
+                reason = "invalidated_after_2r"
             else:
                 status = OutcomeStatus.INVALIDATED
+                reason = "candle_close_invalidation"
             return HistoricalOutcome(
                 status=status,
                 entry_reference_price=entry,
@@ -152,6 +163,8 @@ def simulate_historical_outcome(
                 max_favorable_r=max_favorable_r,
                 max_adverse_r=max_adverse_r,
                 bars_observed=index,
+                terminal=True,
+                terminal_reason=reason,
                 resolved_at=candle.timestamp,
             )
 
@@ -172,4 +185,6 @@ def simulate_historical_outcome(
         max_favorable_r=max_favorable_r,
         max_adverse_r=max_adverse_r,
         bars_observed=len(future),
+        terminal=False,
+        terminal_reason=None,
     )
