@@ -10,6 +10,7 @@ from .clustering import cluster_lookup
 
 
 FIELDNAMES = [
+    "setup_key",
     "zone_id",
     "cluster_id",
     "cluster_rank",
@@ -60,6 +61,7 @@ def setup_to_row(
     outcome = setup.outcome
     cluster_id, cluster_rank, cluster_primary = cluster or ("", "", "")
     return {
+        "setup_key": setup.setup_key,
         "zone_id": zone.id,
         "cluster_id": cluster_id,
         "cluster_rank": cluster_rank,
@@ -123,7 +125,7 @@ def _rows(setups: Iterable[HistoricalSetup]) -> list[dict[str, object]]:
     materialized = list(setups)
     clusters = cluster_lookup(materialized)
     return [
-        setup_to_row(setup, clusters.get(setup.zone.id))
+        setup_to_row(setup, clusters.get(setup.setup_key))
         for setup in materialized
     ]
 
