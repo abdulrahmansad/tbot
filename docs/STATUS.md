@@ -1,54 +1,56 @@
 # Project Status
 
-## 2026-09-19 — Phase 0 foundation
+## 2026-09-19 — Phase 0B provisional automation
 
-Implemented:
-- repository initialized
-- strategy contract documented
-- XAUUSD-only strategy config
-- 5M / 15M / 1H / 4H timeframe model
-- required HTF confirmation mapping
-- 23:00 → 20:00 Istanbul cross-midnight trading window
-- Flip & Dip lifecycle state machine
-- maximum-three-execution enforcement
-- deterministic trade-plan gate
-- minimum 5R requirement
-- 5% planning-risk model
-- explicit candle-close invalidation
-- high-impact USD news blackout engine
-- normalized OHLC candle model
-- provider-neutral market-data interface
+### Implemented and tested
+
+- repository and CI
+- immutable Flip & Dip strategy contract
+- XAUUSD-only configuration
+- 5M / 15M / 1H / 4H candle support
+- required higher-timeframe confirmation mapping
+- Istanbul 23:00 → 20:00 trading-window handling
+- maximum three executions per zone
+- minimum 5R plan gate
+- 5% configurable planning-risk model
+- candle-close invalidation
+- high-impact USD news-blackout engine
+- demo/forward-test event tracking
+- JSONL demo persistence and summary reporting
+- provider-neutral market-data layer
 - Twelve Data XAU/USD adapter
-- manual calibration scenario loader
-- in-memory demo/forward-test tracker
-- append-only JSONL demo persistence
-- demo reporting with execution #1/#2/#3 breakdown
-- runnable synthetic demo example
-- CI test workflow
-- owner-specific detector interfaces
-- explicit failures for unvalidated subjective rules
+- manual calibration scenarios
+- provisional v0 Flip Zone detector
+- provisional v0 rejection scorer
+- provisional v0 pivot-based higher-timeframe structure detector
+- retest-from-correct-side detector
+- historical setup scanner
+- command-line historical scan tool
 
-Still intentionally unimplemented:
-- automated Flip Zone recognition
-- automated rejection-quality recognition
-- automated CHoCH/BOS recognition
-- final TP ladder/partial percentages
-- external economic-calendar provider
-- API/web dashboard
-- live polling scheduler
+### Important status distinction
 
-Blocked on owner calibration examples:
-- exact Flip Zone visual definition
-- healthy vs weak rejection examples
-- exact CHoCH/BOS swing interpretation
+The software can now generate automated provisional Flip & Dip candidates.
 
-Current rule:
-The software may run manual/synthetic planning scenarios, but it must not claim automated strategy accuracy until the three subjective detectors above are calibrated.
+It is NOT yet correct to call those candidates the trader's final strategy signals.
 
-Next build:
-1. calibrate Flip Zone detector from screenshots
-2. calibrate rejection evaluator
-3. calibrate CHoCH/BOS detector
-4. add TP plan once owner method is fixed
-5. connect live XAU/USD polling
-6. begin demo week
+The current Flip Zone, rejection, and structure rules are temporary v0 definitions created because owner-approved chart examples are unavailable. They are intentionally configurable and replaceable.
+
+### Still required before demo week
+
+1. Run historical XAUUSD scans using a real API key/data feed.
+2. Inspect generated setups on charts or exported examples.
+3. Tune provisional parameters until the setups are plausible.
+4. Decide/finalize partial TP levels and percentages.
+5. Add an economic-calendar data adapter.
+6. Add a live polling service.
+7. Freeze a named strategy version.
+8. Start the one-week demo/forward test.
+
+### Not part of Phase 0
+
+- broker order placement
+- automatic execution
+- liquidity-sweep logic
+- RSI/MACD/MA/Fibonacci/volume strategy additions
+
+The bot remains a planner and hypothetical tracker only.
