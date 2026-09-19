@@ -36,6 +36,7 @@ class ForwardTestRunner:
         rejection_is_healthy: bool,
         news: NewsGate,
         planned_rr: float,
+        sizing_reference_price: float,
     ) -> ForwardTestResult:
         decision = self.planner.build_plan(
             zone=zone,
@@ -44,6 +45,7 @@ class ForwardTestRunner:
             rejection_is_healthy=rejection_is_healthy,
             news=news,
             planned_rr=planned_rr,
+            sizing_reference_price=sizing_reference_price,
         )
 
         if decision.plan is None:
