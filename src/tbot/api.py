@@ -15,6 +15,7 @@ from .data.provider import MarketDataProvider
 from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.clustering import cluster_lookup
 from .live_snapshot import LiveSnapshotStore
+from .runtime_status import evaluate_worker_snapshot
 from .strategy_version import candidate_v1
 
 
@@ -94,6 +95,8 @@ def create_app(
     @app.get("/api/health")
     def health() -> dict[str, Any]:
         version = candidate_v1(datetime.now(timezone.utc))
+        snapshot = live_snapshot.read()
+        worker = evaluate_worker_snapshot(snapshot)
         return {
             "status": "ok",
             "symbol": "XAUUSD",
@@ -101,6 +104,15 @@ def create_app(
             "strategy_state": version.state.value,
             "execution_enabled": False,
             "mode": "planning_and_demo_only",
+            "worker": {
+                "status": worker.status,
+                "fresh": worker.fresh,
+                "last_scan_at": worker.last_scan_at,
+                "age_seconds": worker.age_seconds,
+                "news_provider_connected": snapshot.get(
+                    "news_provider_connected", False
+                ),
+            },
         }
 
     @app.get("/api/calibration/status")
