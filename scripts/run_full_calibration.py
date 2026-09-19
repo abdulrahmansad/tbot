@@ -8,6 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.flip_dip.backtest import ProvisionalBacktester
 from tbot.flip_dip.calibration import export_calibration_csv, export_calibration_json
+from tbot.flip_dip.clustering import cluster_ready_setups
 
 
 TIMEFRAMES = (
@@ -30,12 +31,17 @@ def run_one(provider, scanner, entry_tf, confirmation_tf, bars, out_dir):
     json_path = export_calibration_json(setups, out_dir / f"review-{entry_tf.lower()}.json")
 
     reasons = Counter()
+    outcomes = Counter()
     ready = 0
     for setup in setups:
         if setup.decision.plan is not None:
             ready += 1
+            if setup.outcome is not None:
+                outcomes[setup.outcome.status.value] += 1
         else:
             reasons.update(setup.decision.reasons)
+
+    clusters = cluster_ready_setups(setups)
 
     return {
         "entry_timeframe": entry_tf,
@@ -44,7 +50,10 @@ def run_one(provider, scanner, entry_tf, confirmation_tf, bars, out_dir):
         "confirmation_candles": len(htf),
         "candidate_count": len(setups),
         "ready_count": ready,
+        "independent_event_count": len(clusters),
+        "secondary_zone_count": max(ready - len(clusters), 0),
         "skipped_count": len(setups) - ready,
+        "outcomes": dict(outcomes.most_common()),
         "skip_reasons": dict(reasons.most_common()),
         "csv": str(csv_path),
         "json": str(json_path),
@@ -73,8 +82,10 @@ def main():
         print(
             f"  candidates={summary['candidate_count']} "
             f"ready={summary['ready_count']} "
+            f"events={summary['independent_event_count']} "
             f"skipped={summary['skipped_count']}"
         )
+        print(f"  outcomes={summary['outcomes']}")
 
     summary_path = out_dir / "summary.json"
     summary_path.write_text(json.dumps(summaries, indent=2), encoding="utf-8")
