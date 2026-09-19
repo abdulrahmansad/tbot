@@ -35,7 +35,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 <div class="shell">
   <div class="top">
     <div><div class="brand">T<span>BOT</span></div><div class="muted" style="font-size:12px;margin-top:4px">XAUUSD Flip & Dip Lab</div></div>
-    <div class="badge"><span class="dot"></span>Planning & demo only · execution disabled</div>
+    <div id="workerBadge" class="badge"><span class="dot"></span>Checking worker…</div>
   </div>
 
   <div class="nav">
@@ -96,6 +96,15 @@ async function get(url){try{const r=await fetch(url);return await r.json()}catch
 async function health(){
  const d=await get("/api/health");
  q("#strategyVersion").textContent=d.strategy_version||"—";
+ const worker=d.worker||{};
+ const badge=q("#workerBadge");
+ if(worker.fresh){
+   badge.innerHTML='<span class="dot"></span>Worker online · '+(worker.news_provider_connected?'news protected':'news not connected');
+ }else if(worker.status==="stale"){
+   badge.innerHTML='<span class="dot" style="background:var(--warn)"></span>Worker stale';
+ }else{
+   badge.innerHTML='<span class="dot" style="background:var(--bad)"></span>Worker '+(worker.status||"offline");
+ }
  const cal=await get("/api/calibration/status");
  q("#calibrationReady").textContent=cal.ready_for_forward_demo?"Forward-demo ready":"Needs calibration";
 }
