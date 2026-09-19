@@ -10,13 +10,6 @@ from .flip_dip.models import Direction, EntryTimeframe, FlipZone
 from .flip_dip.outcome import OutcomeStatus, simulate_historical_outcome
 
 
-_TERMINAL = {
-    OutcomeStatus.TARGET_5R.value,
-    OutcomeStatus.INVALIDATED.value,
-    OutcomeStatus.AMBIGUOUS.value,
-}
-
-
 class ForwardResultStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -56,7 +49,7 @@ class ForwardOutcomeTracker:
         for row in plans:
             plan_id = row["plan_id"]
             previous = stored.get(plan_id)
-            if previous and previous.get("outcome_status") in _TERMINAL:
+            if previous and previous.get("terminal") is True:
                 continue
 
             plan = row["plan"]
@@ -98,6 +91,8 @@ class ForwardOutcomeTracker:
             )
             stored[plan_id] = {
                 "outcome_status": outcome.status.value,
+                "terminal": outcome.terminal,
+                "terminal_reason": outcome.terminal_reason,
                 "outcome_resolved_at": (
                     outcome.resolved_at.isoformat()
                     if outcome.resolved_at is not None
