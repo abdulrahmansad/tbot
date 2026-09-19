@@ -97,6 +97,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="stat"><b id="simReturn">—</b><span>Return</span></div>
         <div class="stat"><b id="simDD">—</b><span>Max drawdown</span></div>
       </div>
+      <div id="simValidity" class="notice"></div>
       <div id="simCurve" style="margin-top:14px"></div>
       <div class="notice">Hypothetical compounding scenario on primary historical events only. Default payout assumptions: 5R=+5R, 3.5R=+3.5R, 2R=+2R, invalidation=-1R, ambiguous=0R. Candle-close invalidation does not guarantee a real trade would lose exactly 1R.</div>
     </div>
@@ -164,6 +165,14 @@ async function performance(){
  const o=d.outcomes_primary_events||{};
  q("#outcomes").innerHTML=Object.keys(o).length?'<div class="kvs">'+Object.entries(o).map(([k,v])=>`<div class="kv"><b>${k}</b><span>${v}</span></div>`).join("")+'</div>':'<div class="empty">Run the enhanced calibration to populate outcomes.</div>';
  const s=d.account_simulation||{};
+ const simValidity=q("#simValidity");
+ if(s.valid_for_current_strategy_contract===false){
+   simValidity.textContent="Current historical files are not validated for the authoritative strategy contract. Re-run calibration before using this scenario for review.";
+ }else if(s.strategy_profit_estimate_available===false){
+   simValidity.textContent="Milestone scenario only — exact strategy P&L is unavailable until you define the partial TP ladder.";
+ }else{
+   simValidity.textContent="";
+ }
  q("#simEnd").textContent=s.ending_balance==null?"—":"$"+Number(s.ending_balance).toFixed(2);
  q("#simProfit").textContent=s.net_profit==null?"—":(Number(s.net_profit)>=0?"+":"")+"$"+Number(s.net_profit).toFixed(2);
  q("#simReturn").textContent=s.return_percent==null?"—":Number(s.return_percent).toFixed(1)+"%";
