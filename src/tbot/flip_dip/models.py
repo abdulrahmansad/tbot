@@ -91,5 +91,6 @@ class TradePlan:
     minimum_rr: float
     risk_percent: float
     execution_number: int
+    sizing_reference_price: float | None = None
     status: SetupState = SetupState.PLAN_READY
     notes: tuple[str, ...] = field(default_factory=tuple)
