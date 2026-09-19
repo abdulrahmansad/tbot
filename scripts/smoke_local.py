@@ -53,7 +53,7 @@ def main() -> None:
             failure.startswith("health:") for failure in failures
         ),
         "execution_disabled": health.get("execution_enabled") is False,
-        "strategy_version": health.get("strategy_version") == "flip-dip-v1-candidate",
+        "strategy_version": health.get("strategy_version") == "flip-dip-v1-authoritative",
         "worker_fresh": worker.get("fresh") is True,
         "news_provider_connected": worker.get("news_provider_connected") is True,
         "news_provider_named": bool(worker.get("news_provider_name")),
