@@ -1,10 +1,10 @@
 # Project Status
 
-## 2026-09-19 — Phase 0B provisional automation
+## 2026-09-19 — Phase 0C calibration + hosted demo foundation
 
 ### Implemented and tested
 
-- repository and CI
+- repository and GitHub Actions CI
 - immutable Flip & Dip strategy contract
 - XAUUSD-only configuration
 - 5M / 15M / 1H / 4H candle support
@@ -15,42 +15,99 @@
 - 5% configurable planning-risk model
 - candle-close invalidation
 - high-impact USD news-blackout engine
-- demo/forward-test event tracking
-- JSONL demo persistence and summary reporting
 - provider-neutral market-data layer
 - Twelve Data XAU/USD adapter
-- manual calibration scenarios
+- automatic .env loading for local development
+- deterministic Flip Zone IDs across repeated scans
 - provisional v0 Flip Zone detector
 - provisional v0 rejection scorer
 - provisional v0 pivot-based higher-timeframe structure detector
-- retest-from-correct-side detector
+- sequential HTF confirmation between return and retest
+- correct-side retest detector
+- overlapping-zone deduplication
+- event-level clustering for concurrent READY zones
 - historical setup scanner
-- command-line historical scan tool
+- conservative historical outcome simulator
+- 2R / 3.5R / 5R calibration targets
+- explicit AMBIGUOUS status when OHLC cannot determine intrabar order
+- max favorable/adverse R audit metrics
+- richer CSV/JSON calibration exports
+- one-command 5M / 15M / 1H full calibration runner
+- demo/forward-test event tracking
+- JSONL demo persistence
+- persistent forward-demo discovery with seen-zone deduplication
+- forward-demo outcome tracking
+- read-only FastAPI dashboard API
+- responsive Live / Plans / Performance / History dashboard shell
+- Docker deployment
+- two-service Compose runtime: web + monitoring worker
+- server-side secret architecture; no market-data key is exposed to browser code
+
+### Real-data calibration completed
+
+The first real Twelve Data calibration bundle completed successfully before
+outcome tracking was added:
+
+- 5M → 15M: 146 candidates / 19 READY
+- 15M → 1H: 130 candidates / 14 READY
+- 1H → 4H: 142 candidates / 26 READY
+- total: 418 candidates / 59 READY zones
+
+That bundle exposed multi-zone clustering behavior and informed the new event
+clustering layer.
 
 ### Important status distinction
 
-The software can now generate automated provisional Flip & Dip candidates.
+The software now has a functioning detector, real-data scan path, historical
+outcome engine, forward-demo worker, persistence, API, and dashboard shell.
 
-It is NOT yet correct to call those candidates the trader's final strategy signals.
+It is still NOT correct to call provisional v0 a final or validated strategy.
 
-The current Flip Zone, rejection, and structure rules are temporary v0 definitions created because owner-approved chart examples are unavailable. They are intentionally configurable and replaceable.
+The current Flip Zone, rejection, structure, event-ranking and calibration R
+rules remain provisional until the enhanced outcome calibration is rerun and
+reviewed.
 
-### Still required before demo week
+### Next required calibration run
 
-1. Run historical XAUUSD scans using a real API key/data feed.
-2. Inspect generated setups on charts or exported examples.
-3. Tune provisional parameters until the setups are plausible.
-4. Decide/finalize partial TP levels and percentages.
-5. Add an economic-calendar data adapter.
-6. Add a live polling service.
-7. Freeze a named strategy version.
-8. Start the one-week demo/forward test.
+Run the updated full calibration after pulling the latest code:
 
-### Not part of Phase 0
+python scripts/run_full_calibration.py
+
+The new bundle will include:
+
+- retest timestamps
+- HTF structure confirmation timestamps
+- cluster IDs/ranks/primary-zone labels
+- entry reference and provisional zone-width R unit
+- 2R / 3.5R / 5R targets
+- max favorable/adverse R
+- outcome status
+- ambiguity flags
+
+This enhanced bundle is required before detector tuning and v1 freeze.
+
+### Remaining before one-week public demo
+
+1. Review enhanced historical outcomes by timeframe/direction.
+2. Tune detector and event-ranking rules from evidence.
+3. Decide/finalize partial TP percentages if the provisional model changes.
+4. Add a real economic-calendar provider adapter.
+5. Freeze a named calibrated strategy version.
+6. Run the forward-demo worker against fresh XAUUSD data.
+7. Review one-week forward results.
+8. Deploy web + worker with server-side secrets.
+9. Expose the Phase 0 dashboard to invited users.
+
+### Explicitly excluded
 
 - broker order placement
 - automatic execution
+- assisted execution buttons
 - liquidity-sweep logic
-- RSI/MACD/MA/Fibonacci/volume strategy additions
+- RSI
+- MACD
+- moving averages
+- Fibonacci
+- volume strategy additions
 
-The bot remains a planner and hypothetical tracker only.
+TBOT remains a planning and hypothetical tracking system only.
