@@ -29,6 +29,7 @@ DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
 DEFAULT_FORWARD_PLANS_PATH = Path("data/runtime/forward-plans.jsonl")
 DEFAULT_FORWARD_RESULTS_PATH = Path("data/runtime/forward-results.json")
 DEFAULT_LIVE_SNAPSHOT_PATH = Path("data/runtime/live-snapshot.json")
+DEFAULT_DEMO_SESSION_PATH = Path("data/runtime/demo-session.json")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
 
 
@@ -110,13 +111,14 @@ def create_app(
     forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
     forward_results_path: str | Path = DEFAULT_FORWARD_RESULTS_PATH,
     live_snapshot_path: str | Path = DEFAULT_LIVE_SNAPSHOT_PATH,
+    demo_session_path: str | Path = DEFAULT_DEMO_SESSION_PATH,
     access_config: BasicAccessConfig | None = None,
 ) -> FastAPI:
     root = Path(calibration_dir)
     forward_path = Path(forward_plans_path)
     forward_results = Path(forward_results_path)
     live_snapshot = LiveSnapshotStore(live_snapshot_path)
-    demo_session_store = DemoSessionStore("data/runtime/demo-session.json")
+    demo_session_store = DemoSessionStore(demo_session_path)
     historical_tester = (
         HistoricalTestService(market_data=market_data, calendar=calendar)
         if market_data is not None
@@ -251,6 +253,44 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return demo_session_store.describe()
+
+    @app.get("/api/demo/session/summary")
+    def demo_session_summary() -> dict[str, Any]:
+        session = demo_session_store.describe()
+        session_name = session.get("name")
+        plan_rows: list[dict[str, Any]] = []
+        if forward_path.exists():
+            import json
+            with forward_path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    row = json.loads(stripped)
+                    if session.get("configured") and row.get("session_name") != session_name:
+                        continue
+                    plan_rows.append(row)
+
+        results_payload: dict[str, Any] = {}
+        if forward_results.exists():
+            import json
+            results_payload = json.loads(forward_results.read_text(encoding="utf-8"))
+
+        outcomes = Counter()
+        terminal = 0
+        for row in plan_rows:
+            result = results_payload.get(row.get("plan_id"), {})
+            outcomes[result.get("outcome_status", "OPEN")] += 1
+            if result.get("terminal") is True:
+                terminal += 1
+
+        return {
+            "session": session,
+            "plan_count": len(plan_rows),
+            "terminal_count": terminal,
+            "open_count": max(len(plan_rows) - terminal, 0),
+            "outcomes": dict(outcomes),
+        }
 
     @app.get("/api/performance")
     def performance(
@@ -423,7 +463,7 @@ def create_app(
         }
 
     @app.get("/api/plans")
-    def plans() -> dict[str, Any]:
+    def plans(session_name: str | None = None) -> dict[str, Any]:
         if not forward_path.exists():
             return {
                 "mode": "forward_demo",
@@ -447,11 +487,16 @@ def create_app(
                 import json
 
                 row = json.loads(stripped)
+                if session_name and row.get("session_name") != session_name:
+                    continue
                 plan = row.get("plan", {})
                 items.append(
                     {
                         "plan_id": row.get("plan_id"),
                         "created_at": row.get("created_at"),
+                        "session_name": row.get("session_name"),
+                        "session_start": row.get("session_start"),
+                        "session_end": row.get("session_end"),
                         "direction": plan.get("direction"),
                         "entry_timeframe": plan.get("entry_timeframe"),
                         "confirmation_timeframe": plan.get("confirmation_timeframe"),
