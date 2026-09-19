@@ -69,7 +69,7 @@ Copy `.env.example` to `.env`.
 Required for the real forward-demo period:
 
 - `TWELVE_DATA_API_KEY`
-- `FMP_API_KEY`
+- `FMP_API_KEY` is optional; TBOT falls back to FinanceCalendar if FMP is unavailable.
 
 For a hosted private dashboard also set:
 
