@@ -134,6 +134,7 @@ class ForwardDemoService:
                 minutes=_TIMEFRAME_MINUTES[entry_tf] * fresh_bars
             )
             newest_candle_at = entry[-1].timestamp
+            freshness_reference = max(newest_candle_at, moment)
 
             latest_primary = None
             if clusters:
@@ -146,7 +147,7 @@ class ForwardDemoService:
                     setup
                     for setup in primary_setups
                     if setup.retest_at is not None
-                    and newest_candle_at - setup.retest_at <= freshness
+                    and freshness_reference - setup.retest_at <= freshness
                 ]
                 if primary_setups:
                     latest_primary = max(
@@ -195,7 +196,7 @@ class ForwardDemoService:
                     for cluster in clusters
                     if cluster.primary_zone_id in by_zone
                     and by_zone[cluster.primary_zone_id].retest_at is not None
-                    and newest_candle_at
+                    and freshness_reference
                     - by_zone[cluster.primary_zone_id].retest_at
                     <= freshness
                 ),
@@ -207,7 +208,7 @@ class ForwardDemoService:
                 setup = by_zone[cluster.primary_zone_id]
                 if setup.retest_at is None:
                     continue
-                if newest_candle_at - setup.retest_at > freshness:
+                if freshness_reference - setup.retest_at > freshness:
                     continue
 
                 fresh_primary_count += 1
