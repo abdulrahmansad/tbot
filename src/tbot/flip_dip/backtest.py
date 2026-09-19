@@ -111,12 +111,14 @@ class ProvisionalBacktester:
                             rejection_is_healthy=healthy,
                             news=NewsGate(clear=True),
                             planned_rr=planned_rr,
+                            sizing_reference_price=rejection.sizing_reference_price,
                         )
                         if decision.plan is not None:
                             outcome = simulate_historical_outcome(
                                 zone=zone,
                                 candles=entry_candles,
                                 activated_at=retest.timestamp,
+                                sizing_reference_price=rejection.sizing_reference_price,
                             )
 
             output.append(
