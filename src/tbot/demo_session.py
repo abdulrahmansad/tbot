@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -12,6 +13,11 @@ class DemoSession:
     name: str
     start: datetime
     end: datetime
+
+    @property
+    def session_id(self) -> str:
+        raw = f"{self.name}|{self.start.isoformat()}|{self.end.isoformat()}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
     def status_at(self, moment: datetime) -> str:
         if moment < self.start:
@@ -62,6 +68,7 @@ class DemoSessionStore:
             return {
                 "configured": False,
                 "status": "UNBOUNDED",
+                "session_id": None,
                 "name": None,
                 "start": None,
                 "end": None,
@@ -69,6 +76,7 @@ class DemoSessionStore:
         return {
             "configured": True,
             "status": session.status_at(moment),
+            "session_id": session.session_id,
             "name": session.name,
             "start": session.start.isoformat(),
             "end": session.end.isoformat(),
