@@ -86,3 +86,27 @@ def test_sell_retest_must_come_from_below():
         close=99.8,
     )
     assert candle_retests_zone(zone, candle)
+
+
+def test_zone_ids_are_stable_across_repeated_detection():
+    rows = [
+        (100, 101, 99, 100),
+        (100, 102, 99, 101),
+        (101, 105, 100, 104),
+        (104, 104.5, 101, 102),
+        (102, 103, 100, 101),
+        (101, 106, 100.5, 105),
+        (105, 106.5, 102, 103),
+        (103, 104, 99, 100),
+        (100, 102, 98, 99),
+    ]
+    detector = ProvisionalFlipZoneDetector(
+        ProvisionalDetectorConfig(pivot_left=2, pivot_right=2, zone_lookback=20)
+    )
+    candles = make_series("5M", rows)
+
+    first = [zone.id for zone in detector.detect(candles)]
+    second = [zone.id for zone in detector.detect(candles)]
+
+    assert first
+    assert first == second
