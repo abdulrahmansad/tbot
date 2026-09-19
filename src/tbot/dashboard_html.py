@@ -34,7 +34,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 <body>
 <div class="shell">
   <div class="top">
-    <div><div class="brand">T<span>BOT</span></div><div class="muted" style="font-size:12px;margin-top:4px">XAUUSD Flip & Dip Lab</div></div>
+    <div><div class="brand">T<span>BOT</span></div><div class="muted" style="font-size:12px;margin-top:4px">XAUUSD Flip & Dip Lab · planning/demo only · execution disabled</div></div>
     <div id="workerBadge" class="badge"><span class="dot"></span>Checking worker…</div>
   </div>
 
