@@ -74,3 +74,14 @@ def test_live_reports_not_configured_without_market_provider(monkeypatch, tmp_pa
 
     assert result["status"] == "not_configured"
     assert result["execution_enabled"] is False
+
+
+def test_dashboard_root_contains_user_tabs(tmp_path):
+    app = create_app(calibration_dir=tmp_path)
+    html = endpoint(app, "/")()
+
+    assert "Live" in html
+    assert "Plans" in html
+    assert "Performance" in html
+    assert "History" in html
+    assert "execution disabled" in html.lower()
