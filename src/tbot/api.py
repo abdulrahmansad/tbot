@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 
 from .access import BasicAccessConfig, basic_authorized, private_access_from_env
@@ -14,9 +15,12 @@ from .account_simulator import DEFAULT_OUTCOME_R, simulate_account
 from .calibration_status import evaluate_calibration_readiness
 from .dashboard_html import DASHBOARD_HTML
 from .data.provider import MarketDataProvider
+from .demo_session import DemoSession, DemoSessionStore
 from .flip_dip.backtest import ProvisionalBacktester
 from .flip_dip.clustering import cluster_lookup
+from .historical_test import HistoricalTestRequest, HistoricalTestService
 from .live_snapshot import LiveSnapshotStore
+from .news_provider import EconomicCalendarProvider
 from .runtime_status import evaluate_worker_snapshot
 from .strategy_version import authoritative_v1
 
@@ -26,6 +30,20 @@ DEFAULT_FORWARD_PLANS_PATH = Path("data/runtime/forward-plans.jsonl")
 DEFAULT_FORWARD_RESULTS_PATH = Path("data/runtime/forward-results.json")
 DEFAULT_LIVE_SNAPSHOT_PATH = Path("data/runtime/live-snapshot.json")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
+
+
+class HistoricalTestBody(BaseModel):
+    start: datetime
+    end: datetime
+    starting_balance: float = 100.0
+    risk_percent: float = 5.0
+    include_1h: bool = False
+
+
+class DemoSessionBody(BaseModel):
+    name: str
+    start: datetime
+    end: datetime
 
 
 def _calibration_timeframes(calibration_dir: Path) -> tuple[str, ...]:
@@ -87,6 +105,7 @@ def _history_row(row: dict[str, str]) -> dict[str, Any]:
 def create_app(
     *,
     market_data: MarketDataProvider | None = None,
+    calendar: EconomicCalendarProvider | None = None,
     calibration_dir: str | Path = DEFAULT_CALIBRATION_DIR,
     forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
     forward_results_path: str | Path = DEFAULT_FORWARD_RESULTS_PATH,
@@ -97,6 +116,12 @@ def create_app(
     forward_path = Path(forward_plans_path)
     forward_results = Path(forward_results_path)
     live_snapshot = LiveSnapshotStore(live_snapshot_path)
+    demo_session_store = DemoSessionStore("data/runtime/demo-session.json")
+    historical_tester = (
+        HistoricalTestService(market_data=market_data, calendar=calendar)
+        if market_data is not None
+        else None
+    )
     app = FastAPI(
         title="TBOT Phase 0 API",
         version="0.1.0",
@@ -142,6 +167,9 @@ def create_app(
             "strategy_state": version.state.value,
             "execution_enabled": False,
             "mode": "planning_and_demo_only",
+            "market_status": snapshot.get("market_status"),
+            "market_data_age_seconds": snapshot.get("market_data_age_seconds"),
+            "demo_session": snapshot.get("demo_session") or demo_session_store.describe(),
             "primary_entry_timeframes": ["5M", "15M"],
             "optional_1h_entry": True,
             "optional_1h_enabled": "1H" in (snapshot.get("active_entry_timeframes") or []),
@@ -183,6 +211,46 @@ def create_app(
             "execution_model": readiness.execution_model,
             "does_not_claim_profitability": True,
         }
+
+    @app.post("/api/historical-test")
+    def historical_test(body: HistoricalTestBody) -> dict[str, Any]:
+        if historical_tester is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Interactive historical testing is available in local server mode "
+                    "when the market-data provider is configured."
+                ),
+            )
+        try:
+            return historical_tester.run(
+                HistoricalTestRequest(
+                    start=body.start,
+                    end=body.end,
+                    starting_balance=body.starting_balance,
+                    risk_percent=body.risk_percent,
+                    include_1h=body.include_1h,
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/demo/session")
+    def demo_session() -> dict[str, Any]:
+        return demo_session_store.describe()
+
+    @app.post("/api/demo/session")
+    def configure_demo_session(body: DemoSessionBody) -> dict[str, Any]:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="session name is required")
+        try:
+            demo_session_store.write(
+                DemoSession(name=name, start=body.start, end=body.end)
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return demo_session_store.describe()
 
     @app.get("/api/performance")
     def performance(
@@ -454,6 +522,9 @@ def create_app(
                 "trading_window_end": snapshot.get("trading_window_end"),
                 "next_high_impact_event": snapshot.get("next_high_impact_event"),
                 "active_entry_timeframes": snapshot.get("active_entry_timeframes") or [],
+                "market_status": snapshot.get("market_status"),
+                "market_data_age_seconds": snapshot.get("market_data_age_seconds"),
+                "demo_session": snapshot.get("demo_session") or demo_session_store.describe(),
                 "execution_enabled": False,
                 "source": "worker_snapshot",
                 "warning": (
