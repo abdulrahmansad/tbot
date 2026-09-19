@@ -5,6 +5,7 @@ import os
 import time
 from datetime import datetime, timezone
 
+from tbot.data.cached import TimeframeCachedMarketDataProvider
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
@@ -21,6 +22,8 @@ def run_cycle(discovery: ForwardDemoService, tracker: ForwardOutcomeTracker) -> 
         f"tracked={len(outcomes)} "
         f"news_clear={result.news_clear}"
     )
+    if result.news_reason:
+        print(f"  news_reason={result.news_reason}")
     for plan_id in result.created_plan_ids:
         print(f"  created {plan_id}")
 
@@ -38,16 +41,31 @@ def main() -> None:
         "--interval",
         type=int,
         default=60,
-        help="Seconds between cycles in continuous mode (minimum 30).",
+        help="Seconds between cycles in continuous mode (minimum 60).",
+    )
+    parser.add_argument(
+        "--allow-no-news",
+        action="store_true",
+        help=(
+            "Development only: allow monitoring without FMP news protection. "
+            "Do not use for the validation demo week."
+        ),
     )
     args = parser.parse_args()
-    if args.interval < 30:
-        parser.error("--interval must be at least 30 seconds")
+    if args.interval < 60:
+        parser.error("--interval must be at least 60 seconds")
 
-    provider = TwelveDataXauUsdProvider()
+    raw_provider = TwelveDataXauUsdProvider()
+    provider = TimeframeCachedMarketDataProvider(raw_provider)
+
     calendar = None
     if os.getenv("FMP_API_KEY"):
         calendar = FmpEconomicCalendarProvider()
+    elif not args.allow_no_news:
+        parser.error(
+            "FMP_API_KEY is required for the forward-demo validation period. "
+            "Use --allow-no-news only for development/testing."
+        )
 
     discovery = ForwardDemoService(market_data=provider, calendar=calendar)
     tracker = ForwardOutcomeTracker(market_data=provider)
