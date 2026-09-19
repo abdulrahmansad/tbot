@@ -30,6 +30,12 @@ class ForwardDemoPollResult:
 
 
 class SeenZoneStore:
+    """Persistent execution-level de-duplication.
+
+    Legacy zone_ids are read only for compatibility. New writes use
+    setup_keys so retest #2/#3 remain eligible after retest #1.
+    """
+
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
 
@@ -37,11 +43,11 @@ class SeenZoneStore:
         if not self.path.exists():
             return set()
         payload = json.loads(self.path.read_text(encoding="utf-8"))
-        return set(payload.get("zone_ids", []))
+        return set(payload.get("setup_keys", []))
 
-    def write(self, zone_ids: Iterable[str]) -> None:
+    def write(self, setup_keys: Iterable[str]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"zone_ids": sorted(set(zone_ids))}
+        payload = {"setup_keys": sorted(set(setup_keys))}
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
@@ -75,12 +81,14 @@ class ForwardDemoService:
     def poll_once(
         self,
         *,
-        entry_timeframes: tuple[str, ...] = ("5M", "15M", "1H"),
+        entry_timeframes: tuple[str, ...] | None = None,
         bars: int = 500,
         fresh_bars: int = 2,
         now: datetime | None = None,
     ) -> ForwardDemoPollResult:
         moment = now or datetime.now(timezone.utc)
+        if entry_timeframes is None:
+            entry_timeframes = self.scanner.strategy_config.enabled_entry_timeframes
         if fresh_bars < 1:
             raise ValueError("fresh_bars must be >= 1")
 
@@ -126,7 +134,7 @@ class ForwardDemoService:
                 entry_timeframe=entry_tf,
                 planned_rr=5.0,
             )
-            by_zone = {setup.zone.id: setup for setup in setups}
+            by_key = {setup.setup_key: setup for setup in setups}
             clusters = cluster_ready_setups(setups)
             ready_primary_count += len(clusters)
 
@@ -139,9 +147,9 @@ class ForwardDemoService:
             latest_primary = None
             if clusters:
                 primary_setups = [
-                    by_zone[cluster.primary_zone_id]
+                    by_key[cluster.primary_setup_key]
                     for cluster in clusters
-                    if cluster.primary_zone_id in by_zone
+                    if cluster.primary_setup_key in by_key
                 ]
                 primary_setups = [
                     setup
@@ -160,6 +168,8 @@ class ForwardDemoService:
                 plan = latest_primary.decision.plan
                 latest_payload = {
                     "zone_id": latest_primary.zone.id,
+                    "setup_key": latest_primary.setup_key,
+                    "execution_number": latest_primary.execution_number,
                     "direction": latest_primary.zone.direction.value,
                     "entry_timeframe": latest_primary.zone.timeframe.value,
                     "confirmation_timeframe": plan.confirmation_timeframe,
@@ -194,10 +204,10 @@ class ForwardDemoService:
                 "fresh_primary_count": sum(
                     1
                     for cluster in clusters
-                    if cluster.primary_zone_id in by_zone
-                    and by_zone[cluster.primary_zone_id].retest_at is not None
+                    if cluster.primary_setup_key in by_key
+                    and by_key[cluster.primary_setup_key].retest_at is not None
                     and freshness_reference
-                    - by_zone[cluster.primary_zone_id].retest_at
+                    - by_key[cluster.primary_setup_key].retest_at
                     <= freshness
                 ),
                 "latest_ready_plan": latest_payload,
@@ -205,7 +215,7 @@ class ForwardDemoService:
             }
 
             for cluster in clusters:
-                setup = by_zone[cluster.primary_zone_id]
+                setup = by_key[cluster.primary_setup_key]
                 if setup.retest_at is None:
                     continue
                 if freshness_reference - setup.retest_at > freshness:
@@ -221,14 +231,14 @@ class ForwardDemoService:
                     )
                     setup_news_clear = setup_gate.clear
 
-                if not setup_news_clear or setup.zone.id in seen:
+                if not setup_news_clear or setup.setup_key in seen:
                     continue
 
                 plan = setup.decision.plan
                 if plan is None:
                     continue
 
-                plan_id = f"demo-{setup.zone.id}"
+                plan_id = f"demo-{setup.zone.id}-e{setup.execution_number}"
                 tracker = InMemoryDemoTracker()
                 record = tracker.create(
                     plan_id=plan_id,
@@ -236,7 +246,7 @@ class ForwardDemoService:
                     created_at=setup.retest_at,
                 )
                 self.store.append_record(record)
-                seen.add(setup.zone.id)
+                seen.add(setup.setup_key)
                 created.append(plan_id)
 
         self.seen.write(seen)
