@@ -54,9 +54,9 @@ DASHBOARD_HTML = r"""<!doctype html>
         <div class="tf">
           <button class="active" data-tf="5M">5M</button>
           <button data-tf="15M">15M</button>
-          <button data-tf="1H">1H</button>
         </div>
         <div id="livePlan" class="plan"><div class="empty">Loading latest planning state…</div></div>
+        <div class="notice">Primary entries: 5M and 15M. 1H→4H remains available only as an explicit opt-in mode.</div>
       </div>
       <div class="card">
         <div class="eyebrow">System</div>
