@@ -6,6 +6,7 @@ from datetime import datetime
 
 from tbot.data.twelve_data import TwelveDataXauUsdProvider
 from tbot.flip_dip.backtest import ProvisionalBacktester
+from tbot.flip_dip.calibration import export_calibration_csv, export_calibration_json
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,6 +18,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rr", type=float, default=5.0)
     parser.add_argument("--start", help="UTC ISO datetime, e.g. 2026-08-01T00:00:00+00:00")
     parser.add_argument("--end", help="UTC ISO datetime")
+    parser.add_argument("--csv-out", help="Optional calibration CSV output path")
+    parser.add_argument("--json-out", help="Optional calibration JSON output path")
     return parser.parse_args()
 
 
@@ -84,6 +87,13 @@ def main() -> None:
         print("Skip reasons:")
         for reason, count in reason_counts.most_common():
             print(f"  {reason}: {count}")
+
+    if args.csv_out:
+        path = export_calibration_csv(setups, args.csv_out)
+        print(f"Calibration CSV: {path}")
+    if args.json_out:
+        path = export_calibration_json(setups, args.json_out)
+        print(f"Calibration JSON: {path}")
 
 
 if __name__ == "__main__":
