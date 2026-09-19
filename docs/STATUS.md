@@ -111,3 +111,20 @@ This enhanced bundle is required before detector tuning and v1 freeze.
 - volume strategy additions
 
 TBOT remains a planning and hypothetical tracking system only.
+
+
+## 2026-09-19 — Stabilized-risk calibration findings
+
+The first calibration using the stabilized structural risk model removed the
+previous unrealistic 100R-300R artifacts. Primary-event MFE is now within a
+credible range for this sample.
+
+Current evidence does NOT support raising the rejection-score threshold as a
+hard filter.
+
+A persistent calibration warning was observed for 1H BUY setups: zero 5R
+outcomes occurred in both chronological halves of the current sample. This is
+not yet a strategy rule. It must be tested on a second independent historical
+window before 1H BUY can be restricted or disabled.
+
+No timeframe/direction hard gate should be added from one sample alone.
