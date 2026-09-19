@@ -76,10 +76,12 @@ def test_forward_runner_creates_demo_plan_without_execution():
             timeframe="1H",
             direction=Direction.BUY,
             kind="CHOCH",
+            observed_at=now,
         ),
         rejection_is_healthy=True,
         news=NewsGate(clear=True),
         planned_rr=6.0,
+        sizing_reference_price=3590.0,
     )
     assert result.plan_id is not None
     assert len(tracker.all()) == 1
@@ -107,10 +109,13 @@ def test_terminal_demo_record_rejects_more_events():
             confirmed=True,
             timeframe="15M",
             direction=Direction.SELL,
+            kind="BOS",
+            observed_at=now,
         ),
         rejection_is_healthy=True,
         news=NewsGate(clear=True),
         planned_rr=5.0,
+        sizing_reference_price=3610.0,
     )
     tracker.append(
         DemoEvent(
