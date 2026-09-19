@@ -63,7 +63,7 @@ def main() -> None:
     if os.getenv("FMP_API_KEY"):
         calendar = CachedEconomicCalendarProvider(
             FmpEconomicCalendarProvider(),
-            ttl_minutes=15,
+            ttl_minutes=10,
             padding_minutes=60,
         )
     elif not args.allow_no_news:
