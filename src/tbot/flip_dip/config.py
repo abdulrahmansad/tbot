@@ -13,6 +13,7 @@ class FlipDipConfig:
     remain explicit candidate parameters rather than hidden assumptions.
     """
 
+    strategy_contract_version: str = "owner-flip-dip-2026-09-19"
     symbol: str = "XAUUSD"
     risk_percent: float = 5.0
     minimum_rr: float = 5.0
@@ -63,12 +64,12 @@ class FlipDipConfig:
     def validate(self) -> None:
         if self.symbol != "XAUUSD":
             raise ValueError("Phase 0 supports XAUUSD only.")
-        if not (0 < self.risk_percent <= 100):
-            raise ValueError("risk_percent must be > 0 and <= 100")
+        if not (0 < self.risk_percent <= 5):
+            raise ValueError("risk_percent must be > 0 and cannot exceed the owner's 5% cap")
         if self.minimum_rr < 5:
             raise ValueError("Flip & Dip requires minimum_rr >= 5")
-        if self.max_executions_per_zone != 3:
-            raise ValueError("Owner strategy requires exactly 3 maximum executions per zone")
+        if not (1 <= self.max_executions_per_zone <= 3):
+            raise ValueError("max_executions_per_zone must be between 1 and the owner's cap of 3")
         if self.news_blackout_before_minutes < 0 or self.news_blackout_after_minutes < 0:
             raise ValueError("news blackout values cannot be negative")
         if not (0 <= self.rejection_min_score <= 1):
