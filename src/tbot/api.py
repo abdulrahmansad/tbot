@@ -257,7 +257,7 @@ def create_app(
     @app.get("/api/demo/session/summary")
     def demo_session_summary() -> dict[str, Any]:
         session = demo_session_store.describe()
-        session_name = session.get("name")
+        session_id = session.get("session_id")
         plan_rows: list[dict[str, Any]] = []
         if forward_path.exists():
             import json
@@ -267,7 +267,7 @@ def create_app(
                     if not stripped:
                         continue
                     row = json.loads(stripped)
-                    if session.get("configured") and row.get("session_name") != session_name:
+                    if session.get("configured") and row.get("session_id") != session_id:
                         continue
                     plan_rows.append(row)
 
@@ -494,6 +494,7 @@ def create_app(
                     {
                         "plan_id": row.get("plan_id"),
                         "created_at": row.get("created_at"),
+                        "session_id": row.get("session_id"),
                         "session_name": row.get("session_name"),
                         "session_start": row.get("session_start"),
                         "session_end": row.get("session_end"),
