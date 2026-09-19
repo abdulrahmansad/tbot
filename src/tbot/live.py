@@ -47,6 +47,10 @@ class LivePlanningService:
         now: datetime | None = None,
     ) -> LiveScanResult:
         moment = now or datetime.now(timezone.utc)
+        if entry_timeframe not in self.strategy_config.enabled_entry_timeframes:
+            raise ValueError(
+                f"{entry_timeframe} entry is not enabled by the current strategy config"
+            )
         confirmation = self.strategy_config.confirmation_timeframe[entry_timeframe]
 
         entry = self.market_data.fetch_candles(
@@ -58,6 +62,19 @@ class LivePlanningService:
             outputsize=bars,
         )
 
+        events = []
+        if self.calendar is not None:
+            events = self.calendar.fetch_events(
+                start=(entry[0].timestamp if entry else moment) - timedelta(hours=3),
+                end=moment + timedelta(hours=2),
+            )
+
+        def news_gate_at(retest_at):
+            if self.calendar is None:
+                from .flip_dip.models import NewsGate
+                return NewsGate(clear=True)
+            return self.news_engine.evaluate(now=retest_at, events=events)
+
         setups = self.backtester.scan(
             {
                 entry_timeframe: entry,
@@ -65,21 +82,9 @@ class LivePlanningService:
             },
             entry_timeframe=entry_timeframe,
             planned_rr=planned_rr,
+            news_gate_at=news_gate_at,
         )
-
-        # News provider integration is intentionally isolated from strategy logic.
-        if self.calendar is not None:
-            events = self.calendar.fetch_events(
-                start=moment - timedelta(hours=2),
-                end=moment + timedelta(hours=2),
-            )
-            gate = self.news_engine.evaluate(now=moment, events=events)
-            if not gate.clear:
-                ready = 0
-            else:
-                ready = sum(1 for setup in setups if setup.decision.plan is not None)
-        else:
-            ready = sum(1 for setup in setups if setup.decision.plan is not None)
+        ready = sum(1 for setup in setups if setup.decision.plan is not None)
 
         return LiveScanResult(
             scanned_at=moment,
