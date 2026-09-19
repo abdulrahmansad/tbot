@@ -229,10 +229,14 @@ class ForwardDemoService:
         self.seen.write(seen)
 
         news_provider_name = None
+        news_provider_failures = []
         calendar = self.calendar
         if calendar is not None:
             upstream = getattr(calendar, "upstream", None)
             news_provider_name = getattr(upstream, "last_provider_name", None)
+            news_provider_failures = list(
+                getattr(upstream, "last_failures", []) or []
+            )
             if news_provider_name is None:
                 news_provider_name = type(upstream or calendar).__name__
 
@@ -243,6 +247,7 @@ class ForwardDemoService:
                 "news_reason": news_reason,
                 "news_provider_connected": self.calendar is not None,
                 "news_provider_name": news_provider_name,
+                "news_provider_failures": news_provider_failures,
                 "execution_enabled": False,
                 "timeframes": timeframe_snapshots,
             }
