@@ -17,7 +17,7 @@ services:
     command: python scripts/run_forward_demo.py --interval 60
     environment:
       TWELVE_DATA_API_KEY: "${TWELVE_DATA_API_KEY}"
-      FMP_API_KEY: "${FMP_API_KEY}"
+      FMP_API_KEY: "${FMP_API_KEY:-}"
     volumes:
       - tbot-data:/app/data/runtime
     restart: unless-stopped
