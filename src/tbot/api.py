@@ -236,6 +236,12 @@ def create_app(
                         "outcome_status": results_payload.get(
                             row.get("plan_id"), {}
                         ).get("outcome_status", "OPEN"),
+                        "terminal": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("terminal", False),
+                        "terminal_reason": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("terminal_reason"),
                         "max_favorable_r": results_payload.get(
                             row.get("plan_id"), {}
                         ).get("max_favorable_r"),
