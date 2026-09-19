@@ -42,10 +42,12 @@ def main() -> None:
             timeframe="15M",
             direction=Direction.SELL,
             kind="BOS",
+            observed_at=now,
         ),
         rejection_is_healthy=True,
         news=NewsGate(clear=True),
         planned_rr=5.0,
+        sizing_reference_price=3606.0,
     )
 
     if result.plan_id is None:
