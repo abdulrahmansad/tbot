@@ -65,7 +65,7 @@ def simulate_historical_outcome(
     future = [
         candle
         for candle in candles
-        if candle.timestamp >= activated_at and candle.timeframe == zone.timeframe.value
+        if candle.timestamp > activated_at and candle.timeframe == zone.timeframe.value
     ]
 
     max_favorable_r = 0.0
