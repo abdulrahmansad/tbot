@@ -70,6 +70,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           <div class="kv"><b>Calibration</b><span id="calibrationReady">Checking…</span></div>
         </div>
         <div class="notice">A READY plan is a hypothetical planning signal. TBOT does not place broker orders.</div>
+        <div id="newsAttribution" class="notice"></div>
       </div>
     </div>
   </section>
@@ -104,6 +105,15 @@ async function health(){
    badge.innerHTML='<span class="dot" style="background:var(--warn)"></span>Worker stale';
  }else{
    badge.innerHTML='<span class="dot" style="background:var(--bad)"></span>Worker '+(worker.status||"offline");
+ }
+ const provider=worker.news_provider_name||"";
+ const attribution=q("#newsAttribution");
+ if(provider==="FinanceCalendarProvider"){
+   attribution.innerHTML='Economic calendar: <a href="https://www.financecalendar.com" target="_blank" rel="noopener noreferrer" style="color:var(--blue)">financecalendar.com</a>';
+ }else if(provider){
+   attribution.textContent='Economic calendar: '+provider;
+ }else{
+   attribution.textContent='';
  }
  const cal=await get("/api/calibration/status");
  q("#calibrationReady").textContent=cal.ready_for_forward_demo?"Forward-demo ready":"Needs calibration";
