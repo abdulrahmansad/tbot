@@ -19,6 +19,7 @@ from .strategy_version import provisional_v0
 
 DEFAULT_CALIBRATION_DIR = Path("data/runtime/calibration")
 DEFAULT_FORWARD_PLANS_PATH = Path("data/runtime/forward-plans.jsonl")
+DEFAULT_FORWARD_RESULTS_PATH = Path("data/runtime/forward-results.json")
 SUPPORTED_ENTRY_TIMEFRAMES = ("5M", "15M", "1H")
 
 
@@ -68,9 +69,11 @@ def create_app(
     market_data: MarketDataProvider | None = None,
     calibration_dir: str | Path = DEFAULT_CALIBRATION_DIR,
     forward_plans_path: str | Path = DEFAULT_FORWARD_PLANS_PATH,
+    forward_results_path: str | Path = DEFAULT_FORWARD_RESULTS_PATH,
 ) -> FastAPI:
     root = Path(calibration_dir)
     forward_path = Path(forward_plans_path)
+    forward_results = Path(forward_results_path)
     app = FastAPI(
         title="TBOT Phase 0 API",
         version="0.1.0",
@@ -109,14 +112,25 @@ def create_app(
         primary_outcomes = Counter(
             row.get("outcome_status") or "UNRESOLVED" for row in primary
         )
+        forward_outcomes: Counter[str] = Counter()
+        if forward_results.exists():
+            import json
+
+            payload = json.loads(forward_results.read_text(encoding="utf-8"))
+            forward_outcomes.update(
+                item.get("outcome_status", "UNRESOLVED")
+                for item in payload.values()
+            )
+
         return {
-            "source": "historical_calibration",
+            "source": "historical_calibration_plus_forward_demo",
             "candidate_count": len(rows),
             "ready_zone_count": len(ready),
             "independent_event_count": len(primary),
             "secondary_zone_count": max(len(ready) - len(primary), 0),
             "outcomes_all_ready_zones": dict(outcomes),
             "outcomes_primary_events": dict(primary_outcomes),
+            "forward_demo_outcomes": dict(forward_outcomes),
             "metric_note": (
                 "Historical R uses provisional zone-width normalization; "
                 "it is not broker-realized P&L."
@@ -159,6 +173,12 @@ def create_app(
                 "items": [],
             }
 
+        results_payload: dict[str, Any] = {}
+        if forward_results.exists():
+            import json
+
+            results_payload = json.loads(forward_results.read_text(encoding="utf-8"))
+
         items: list[dict[str, Any]] = []
         with forward_path.open("r", encoding="utf-8") as handle:
             for line in handle:
@@ -182,7 +202,18 @@ def create_app(
                         "risk_percent": plan.get("risk_percent"),
                         "execution_number": plan.get("execution_number"),
                         "invalidation_rule": plan.get("invalidation_rule"),
-                        "outcome_status": "OPEN",
+                        "outcome_status": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("outcome_status", "OPEN"),
+                        "max_favorable_r": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("max_favorable_r"),
+                        "max_adverse_r": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("max_adverse_r"),
+                        "outcome_resolved_at": results_payload.get(
+                            row.get("plan_id"), {}
+                        ).get("outcome_resolved_at"),
                     }
                 )
 
