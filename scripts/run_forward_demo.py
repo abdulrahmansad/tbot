@@ -13,13 +13,22 @@ from tbot.fallback_calendar import FallbackEconomicCalendarProvider
 from tbot.finance_calendar import FinanceCalendarProvider
 from tbot.fmp_calendar import FmpEconomicCalendarProvider
 from tbot.forward_demo import ForwardDemoService
+from tbot.flip_dip.config import FlipDipConfig
 from tbot.news_cache import CachedEconomicCalendarProvider
 from tbot.xoomar_calendar import XoomarEconomicCalendarProvider
 from tbot.forward_tracking import ForwardOutcomeTracker
 
 
-def run_cycle(discovery: ForwardDemoService, tracker: ForwardOutcomeTracker) -> None:
-    result = discovery.poll_once(now=datetime.now(timezone.utc))
+def run_cycle(
+    discovery: ForwardDemoService,
+    tracker: ForwardOutcomeTracker,
+    *,
+    entry_timeframes: tuple[str, ...],
+) -> None:
+    result = discovery.poll_once(
+        now=datetime.now(timezone.utc),
+        entry_timeframes=entry_timeframes,
+    )
     outcomes = tracker.update()
     print(
         f"scan={result.scanned_at.isoformat()} "
@@ -50,6 +59,11 @@ def main() -> None:
         type=int,
         default=60,
         help="Seconds between cycles in continuous mode (minimum 60).",
+    )
+    parser.add_argument(
+        "--include-1h",
+        action="store_true",
+        help="Opt in to 1H entry plans with required 4H confirmation.",
     )
     parser.add_argument(
         "--allow-no-news",
@@ -86,16 +100,30 @@ def main() -> None:
             "Use --allow-no-news only for development/testing."
         )
 
-    discovery = ForwardDemoService(market_data=provider, calendar=calendar)
+    strategy_config = FlipDipConfig(enable_1h_entries=args.include_1h)
+    entry_timeframes = strategy_config.enabled_entry_timeframes
+    discovery = ForwardDemoService(
+        market_data=provider,
+        calendar=calendar,
+        strategy_config=strategy_config,
+    )
     tracker = ForwardOutcomeTracker(market_data=provider)
 
     if args.once:
-        run_cycle(discovery, tracker)
+        run_cycle(
+            discovery,
+            tracker,
+            entry_timeframes=entry_timeframes,
+        )
         return
 
     while True:
         try:
-            run_cycle(discovery, tracker)
+            run_cycle(
+                discovery,
+                tracker,
+                entry_timeframes=entry_timeframes,
+            )
         except Exception as exc:
             print(f"cycle_error={type(exc).__name__}: {exc}")
         time.sleep(args.interval)
