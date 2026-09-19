@@ -3,11 +3,14 @@ import csv
 from tbot.api import create_app
 
 
-def endpoint(app, path):
+def endpoint(app, path, method=None):
     for route in app.routes:
-        if getattr(route, "path", None) == path:
-            return route.endpoint
-    raise AssertionError(f"route not found: {path}")
+        if getattr(route, "path", None) != path:
+            continue
+        if method is not None and method not in (getattr(route, "methods", None) or set()):
+            continue
+        return route.endpoint
+    raise AssertionError(f"route not found: {path} method={method}")
 
 
 def test_health_is_read_only():
@@ -233,7 +236,7 @@ def test_demo_session_can_be_configured_through_api(tmp_path):
         demo_session_path=tmp_path / "demo-session.json",
     )
     start = datetime(2026, 9, 20, tzinfo=timezone.utc)
-    result = endpoint(app, "/api/demo/session")(
+    result = endpoint(app, "/api/demo/session", method="POST")(
         DemoSessionBody(
             name="Friend Strategy Demo",
             start=start,
